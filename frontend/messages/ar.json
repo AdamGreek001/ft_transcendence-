@@ -1,0 +1,60 @@
+{
+    "common": {
+        "appName": "ft_transcendence",
+        "loading": "جاري التحميل…",
+        "error": "حدث خطأ ما",
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "confirm": "تأكيد",
+        "search": "بحث",
+        "noResults": "لا توجد نتائج"
+    },
+    "auth": {
+        "login": "تسجيل الدخول",
+        "register": "إنشاء حساب",
+        "logout": "تسجيل الخروج",
+        "email": "البريد الإلكتروني",
+        "password": "كلمة المرور",
+        "username": "اسم المستخدم",
+        "forgotPassword": "نسيت كلمة المرور؟",
+        "oauthLogin": "تسجيل الدخول عبر Google",
+        "twoFactor": "المصادقة الثنائية",
+        "enterCode": "أدخل الرمز من تطبيق المصادقة"
+    },
+    "nav": {
+        "feed": "الرئيسية",
+        "explore": "استكشاف",
+        "messages": "الرسائل",
+        "notifications": "الإشعارات",
+        "profile": "الملف الشخصي",
+        "settings": "الإعدادات"
+    },
+    "feed": {
+        "createPost": "بماذا تفكر؟",
+        "like": "إعجاب",
+        "comment": "تعليق",
+        "share": "مشاركة",
+        "noMorePosts": "لقد وصلت إلى النهاية"
+    },
+    "profile": {
+        "followers": "المتابعون",
+        "following": "المتابَعون",
+        "posts": "المنشورات",
+        "editProfile": "تعديل الملف الشخصي",
+        "follow": "متابعة",
+        "unfollow": "إلغاء المتابعة",
+        "block": "حظر",
+        "report": "إبلاغ"
+    },
+    "chat": {
+        "typeMessage": "اكتب رسالة…",
+        "online": "متصل",
+        "offline": "غير متصل",
+        "noConversations": "لا توجد محادثات بعد"
+    },
+    "legal": {
+        "privacyPolicy": "سياسة الخصوصية",
+        "termsOfService": "شروط الخدمة"
+    }
+}

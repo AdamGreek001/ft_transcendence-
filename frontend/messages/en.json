@@ -1,0 +1,60 @@
+{
+    "common": {
+        "appName": "ft_transcendence",
+        "loading": "Loading…",
+        "error": "Something went wrong",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "confirm": "Confirm",
+        "search": "Search",
+        "noResults": "No results found"
+    },
+    "auth": {
+        "login": "Log In",
+        "register": "Sign Up",
+        "logout": "Log Out",
+        "email": "Email",
+        "password": "Password",
+        "username": "Username",
+        "forgotPassword": "Forgot password?",
+        "oauthLogin": "Log in with Google",
+        "twoFactor": "Two-Factor Authentication",
+        "enterCode": "Enter the code from your authenticator app"
+    },
+    "nav": {
+        "feed": "Feed",
+        "explore": "Explore",
+        "messages": "Messages",
+        "notifications": "Notifications",
+        "profile": "Profile",
+        "settings": "Settings"
+    },
+    "feed": {
+        "createPost": "What's on your mind?",
+        "like": "Like",
+        "comment": "Comment",
+        "share": "Share",
+        "noMorePosts": "You've reached the end"
+    },
+    "profile": {
+        "followers": "Followers",
+        "following": "Following",
+        "posts": "Posts",
+        "editProfile": "Edit Profile",
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "block": "Block",
+        "report": "Report"
+    },
+    "chat": {
+        "typeMessage": "Type a message…",
+        "online": "Online",
+        "offline": "Offline",
+        "noConversations": "No conversations yet"
+    },
+    "legal": {
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Terms of Service"
+    }
+}

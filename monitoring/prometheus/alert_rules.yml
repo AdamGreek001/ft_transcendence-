@@ -1,0 +1,42 @@
+groups:
+  - name: ft_transcendence_alerts
+    rules:
+      # ─── Backend down ──────────────────────────────────────
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend service is down"
+          description: "The NestJS backend has been unreachable for more than 1 minute."
+
+      # ─── High error rate ───────────────────────────────────
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate detected"
+          description: "More than 10% of requests are returning 5xx errors."
+
+      # ─── nginx down ────────────────────────────────────────
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nginx reverse proxy is down"
+          description: "Nginx has been unreachable for more than 1 minute."
+
+      # ─── High request latency ──────────────────────────────
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency"
+          description: "95th percentile request latency is above 2 seconds."

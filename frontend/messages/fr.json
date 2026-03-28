@@ -1,0 +1,60 @@
+{
+    "common": {
+        "appName": "ft_transcendence",
+        "loading": "Chargement…",
+        "error": "Une erreur est survenue",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "confirm": "Confirmer",
+        "search": "Rechercher",
+        "noResults": "Aucun résultat"
+    },
+    "auth": {
+        "login": "Se connecter",
+        "register": "S'inscrire",
+        "logout": "Se déconnecter",
+        "email": "E-mail",
+        "password": "Mot de passe",
+        "username": "Nom d'utilisateur",
+        "forgotPassword": "Mot de passe oublié ?",
+        "oauthLogin": "Se connecter avec Google",
+        "twoFactor": "Authentification à deux facteurs",
+        "enterCode": "Entrez le code de votre application d'authentification"
+    },
+    "nav": {
+        "feed": "Fil d'actualité",
+        "explore": "Explorer",
+        "messages": "Messages",
+        "notifications": "Notifications",
+        "profile": "Profil",
+        "settings": "Paramètres"
+    },
+    "feed": {
+        "createPost": "Quoi de neuf ?",
+        "like": "J'aime",
+        "comment": "Commenter",
+        "share": "Partager",
+        "noMorePosts": "Vous avez tout vu"
+    },
+    "profile": {
+        "followers": "Abonnés",
+        "following": "Abonnements",
+        "posts": "Publications",
+        "editProfile": "Modifier le profil",
+        "follow": "Suivre",
+        "unfollow": "Ne plus suivre",
+        "block": "Bloquer",
+        "report": "Signaler"
+    },
+    "chat": {
+        "typeMessage": "Écrivez un message…",
+        "online": "En ligne",
+        "offline": "Hors ligne",
+        "noConversations": "Pas encore de conversations"
+    },
+    "legal": {
+        "privacyPolicy": "Politique de confidentialité",
+        "termsOfService": "Conditions d'utilisation"
+    }
+}

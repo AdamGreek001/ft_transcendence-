@@ -1,0 +1,167 @@
+version: "3.9"
+
+services:
+  # ─── WAF / ModSecurity ─────────────────────────────────────────
+  waf:
+    build:
+      context: ./waf
+      dockerfile: Dockerfile
+    container_name: ft_waf
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    depends_on:
+      nginx:
+        condition: service_started
+    volumes:
+      - waf_certs:/etc/nginx/certs
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── Reverse Proxy (nginx) ────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: ft_nginx
+    expose:
+      - "80"
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── Frontend (Next.js) ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ft_frontend
+    expose:
+      - "3000"
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── Backend (NestJS) ───────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ft_backend
+    expose:
+      - "${BACKEND_PORT:-3001}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:${BACKEND_PORT:-3001}/api/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: ft_postgres
+    expose:
+      - "5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-transcendence} -d ${POSTGRES_DB:-transcendence}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── HashiCorp Vault ─────────────────────────────────────────
+  vault:
+    build:
+      context: ./vault
+      dockerfile: Dockerfile
+    container_name: ft_vault
+    cap_add:
+      - IPC_LOCK
+    expose:
+      - "8200"
+    volumes:
+      - vault_data:/vault/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+  # ─── Prometheus ──────────────────────────────────────────────
+  prometheus:
+    build:
+      context: ./monitoring/prometheus
+      dockerfile: Dockerfile
+    container_name: ft_prometheus
+    expose:
+      - "9090"
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ─── Grafana ─────────────────────────────────────────────────
+  grafana:
+    build:
+      context: ./monitoring/grafana
+      dockerfile: Dockerfile
+    container_name: ft_grafana
+    expose:
+      - "3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app-network
+    restart: unless-stopped
+    env_file: .env
+
+# ─── Named Volumes ──────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  waf_certs:
+    driver: local
+  vault_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ─── Networks ────────────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge
