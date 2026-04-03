@@ -2,9 +2,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-COPY prisma ./prisma/
 RUN npm ci && \
-    npx prisma generate && \
     npm cache clean --force && \
     rm -rf /tmp/*
 
@@ -26,14 +24,14 @@ RUN addgroup --system --gid 1001 nestjs && \
     rm -rf /var/cache/apk/*
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
 COPY package.json package-lock.json* ./
 COPY docker-entrypoint.sh ./
 RUN npm ci --omit=dev && \
-    npx prisma generate && \
     npm cache clean --force && \
     rm -rf /tmp/* && \
-    chmod +x docker-entrypoint.sh
+    chmod +x docker-entrypoint.sh && \
+    mkdir -p /app/uploads && \
+    chown -R nestjs:nestjs /app/uploads
 
 USER nestjs
 EXPOSE 3001

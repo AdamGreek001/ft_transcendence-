@@ -1,69 +1,69 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma.service";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import { Post } from "../../entities/post.entity";
+import { Like } from "../../entities/like.entity";
+import { Follow } from "../../entities/follow.entity";
 
 @Injectable()
 export class PostsService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(Post) private readonly postRepo: Repository<Post>,
+        @InjectRepository(Like) private readonly likeRepo: Repository<Like>,
+        @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
+    ) { }
 
     async create(authorId: string, content: string, imageUrl?: string) {
-        return this.prisma.post.create({
-            data: { content, imageUrl, authorId },
-            include: {
-                author: { select: { id: true, username: true, avatarUrl: true } },
-                _count: { select: { likes: true, comments: true } },
-            },
-        });
+        const post = this.postRepo.create({ content, imageUrl, authorId });
+        const saved = await this.postRepo.save(post);
+        return this.findById(saved.id);
     }
 
     async findById(id: string) {
-        const post = await this.prisma.post.findUnique({
+        const post = await this.postRepo.findOne({
             where: { id },
-            include: {
-                author: { select: { id: true, username: true, avatarUrl: true } },
-                _count: { select: { likes: true, comments: true } },
-            },
+            relations: ["author"],
         });
         if (!post) throw new NotFoundException("Post not found");
-        return post;
+
+        const [likesCount, commentsCount] = await Promise.all([
+            this.likeRepo.count({ where: { postId: id } }),
+            this.postRepo.manager.count("comments", { where: { postId: id } }),
+        ]);
+
+        return { ...post, _count: { likes: likesCount, comments: commentsCount } };
     }
 
     async getFeed(userId: string, page: number, limit: number) {
         const skip = (page - 1) * limit;
-        const following = await this.prisma.follow.findMany({
+        const follows = await this.followRepo.find({
             where: { followerId: userId },
-            select: { followingId: true },
+            select: ["followingId"],
         });
-        const followingIds = following.map((f) => f.followingId);
-        followingIds.push(userId); // include own posts
+        const followingIds = follows.map((f) => f.followingId);
+        followingIds.push(userId);
 
-        const [data, total] = await Promise.all([
-            this.prisma.post.findMany({
-                where: { authorId: { in: followingIds } },
-                orderBy: { createdAt: "desc" },
-                skip,
-                take: limit,
-                include: {
-                    author: { select: { id: true, username: true, avatarUrl: true } },
-                    _count: { select: { likes: true, comments: true } },
-                },
-            }),
-            this.prisma.post.count({ where: { authorId: { in: followingIds } } }),
-        ]);
+        const [data, total] = await this.postRepo.findAndCount({
+            where: { authorId: In(followingIds) },
+            order: { createdAt: "DESC" },
+            skip,
+            take: limit,
+            relations: ["author"],
+        });
 
         return { data, total, page, limit, hasMore: skip + data.length < total };
     }
 
     async toggleLike(userId: string, postId: string) {
-        const existing = await this.prisma.like.findUnique({
-            where: { userId_postId: { userId, postId } },
-        });
+        const existing = await this.likeRepo.findOne({ where: { userId, postId } });
 
         if (existing) {
-            await this.prisma.like.delete({ where: { id: existing.id } });
+            await this.likeRepo.remove(existing);
             return { liked: false };
         }
 
-        await this.prisma.like.create({ data: { userId, postId } });
+        const like = this.likeRepo.create({ userId, postId });
+        await this.likeRepo.save(like);
         return { liked: true };
     }
 }

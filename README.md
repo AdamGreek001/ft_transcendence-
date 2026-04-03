@@ -107,7 +107,7 @@ make up
 | \<login1\>  | Project Owner    | Vision, priorities, module selection, stakeholder sync   |
 | \<login2\>  | Tech Lead        | Architecture, code reviews, CI/CD, DevOps               |
 | \<login3\>  | Frontend Dev     | UI/UX, React components, pages, i18n, Tailwind          |
-| \<login4\>  | Backend Dev      | API, WebSocket, auth, Prisma, database                  |
+| \<login4\>  | Backend Dev      | API, WebSocket, auth, TypeORM, database                 |
 | \<login5\>  | Full-Stack Dev   | Search, notifications, media, monitoring, security      |
 
 ---
@@ -126,10 +126,10 @@ make up
 
 | Layer      | Technology       | Justification                                                |
 |-----------|------------------|--------------------------------------------------------------|
-| Frontend  | Next.js 15       | App Router, SSR, React 19, excellent DX                      |
+| Frontend  | Next.js 16       | App Router, React 19, View Transitions, excellent DX         |
 | Styling   | Tailwind CSS 3   | Utility-first CSS, fast iteration, responsive design         |
-| Backend   | NestJS 10        | Modular architecture, TypeScript, decorators, Swagger        |
-| ORM       | Prisma 6         | Type-safe queries, migrations, schema-first                  |
+| Backend   | NestJS 11        | Modular architecture, TypeScript, Express v5, Swagger        |
+| ORM       | TypeORM 0.3      | Decorator-based entities, migrations, Repository pattern     |
 | Database  | PostgreSQL 16    | ACID compliance, JSON support, mature ecosystem              |
 | WebSocket | Socket.io 4      | Real-time chat, typing indicators, presence detection        |
 | Auth      | JWT + Google OAuth + TOTP | Stateless auth, social login, 2FA            |
@@ -212,7 +212,7 @@ make up
 |------------------------|-------|--------|-------------------------------------------------|-----------------|
 | Use a Framework (Backend) | Major | 2    | NestJS for modular, typed backend               | \<login4\>      |
 | Use a Framework (Frontend)| Major | 2   | Next.js for SSR, App Router, React 19           | \<login3\>      |
-| Use a database for Backend| Minor | 1   | PostgreSQL with Prisma ORM                      | \<login4\>      |
+| Use a database for Backend| Minor | 1   | PostgreSQL with TypeORM                         | \<login4\>      |
 | Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | \<login3\>, \<login4\> |
 | Remote Authentication (Google) | Major | 2 | Google OAuth2 integration                    | \<login4\>      |
 | Two-Factor Auth (TOTP)  | Major | 2     | TOTP authenticator app support                  | \<login4\>      |
@@ -247,7 +247,7 @@ make up
 - Built Zustand state management and API client
 
 ### \<login4\> — Backend Developer
-- Designed Prisma database schema (8 models)
+- Designed TypeORM entity schema (8 models)
 - Implemented authentication (JWT, Google OAuth, TOTP 2FA)
 - Built REST API modules (users, posts, comments, public-api)
 - Created WebSocket chat gateway with Socket.io
@@ -266,7 +266,7 @@ make up
 ### Documentation
 - [Next.js Documentation](https://nextjs.org/docs)
 - [NestJS Documentation](https://docs.nestjs.com)
-- [Prisma Documentation](https://www.prisma.io/docs)
+- [TypeORM Documentation](https://typeorm.io)
 - [Socket.io Documentation](https://socket.io/docs)
 - [Docker Compose Reference](https://docs.docker.com/compose)
 - [OWASP ModSecurity CRS](https://coreruleset.org/docs/)

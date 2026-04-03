@@ -41,7 +41,7 @@ async function bootstrap() {
     SwaggerModule.setup("api/docs", app, document);
 
     const port = config.get<number>("BACKEND_PORT", 3001);
-    await app.listen(port, "0.0.0.0");
+    await app.listen(port);
     console.log(`Application running on port ${port}`);
 }
 

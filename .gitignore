@@ -37,8 +37,8 @@ yarn-error.log*
 # Coverage
 coverage/
 
-# Prisma
-backend/prisma/migrations/**/migration_lock.toml
+# TypeORM
+# (migrations are tracked in git)
 
 # SSL certs (generated locally)
 waf/certs/

@@ -1,42 +1,48 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma.service";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { User } from "../../entities/user.entity";
+import { Follow } from "../../entities/follow.entity";
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(User) private readonly userRepo: Repository<User>,
+        @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
+    ) { }
 
     async findByUsername(username: string) {
-        const user = await this.prisma.user.findUnique({
+        const user = await this.userRepo.findOne({
             where: { username },
-            select: {
-                id: true,
-                username: true,
-                displayName: true,
-                bio: true,
-                avatarUrl: true,
-                createdAt: true,
-                _count: { select: { posts: true, followers: true, following: true } },
-            },
+            select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt"],
         });
         if (!user) throw new NotFoundException("User not found");
-        return user;
+
+        const [postCount, followerCount, followingCount] = await Promise.all([
+            this.userRepo.manager.count("posts", { where: { authorId: user.id } }),
+            this.followRepo.count({ where: { followingId: user.id } }),
+            this.followRepo.count({ where: { followerId: user.id } }),
+        ]);
+
+        return { ...user, _count: { posts: postCount, followers: followerCount, following: followingCount } };
     }
 
     async updateProfile(id: string, data: { displayName?: string; bio?: string }) {
-        return this.prisma.user.update({ where: { id }, data });
+        await this.userRepo.update(id, data);
+        return this.userRepo.findOne({ where: { id } });
     }
 
     async getFollowers(userId: string) {
-        return this.prisma.follow.findMany({
+        return this.followRepo.find({
             where: { followingId: userId },
-            include: { follower: { select: { id: true, username: true, avatarUrl: true } } },
+            relations: ["follower"],
         });
     }
 
     async getFollowing(userId: string) {
-        return this.prisma.follow.findMany({
+        return this.followRepo.find({
             where: { followerId: userId },
-            include: { following: { select: { id: true, username: true, avatarUrl: true } } },
+            relations: ["following"],
         });
     }
 }
