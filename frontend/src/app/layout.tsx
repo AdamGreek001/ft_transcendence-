@@ -4,6 +4,8 @@ import { getLocale, getMessages } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
     title: "ft_transcendence — Social Platform",
     description:
