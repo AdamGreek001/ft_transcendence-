@@ -1,35 +1,34 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma.service";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Notification } from "../../entities/notification.entity";
 
 @Injectable()
 export class NotificationsService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(Notification) private readonly notifRepo: Repository<Notification>,
+    ) { }
 
     async create(recipientId: string, actorId: string, type: string, message: string) {
-        return this.prisma.notification.create({
-            data: { recipientId, actorId, type, message },
-        });
+        const notif = this.notifRepo.create({ recipientId, actorId, type, message });
+        return this.notifRepo.save(notif);
     }
 
     async findByUser(userId: string) {
-        return this.prisma.notification.findMany({
+        return this.notifRepo.find({
             where: { recipientId: userId },
-            orderBy: { createdAt: "desc" },
+            order: { createdAt: "DESC" },
             take: 50,
-            include: {
-                actor: { select: { id: true, username: true, avatarUrl: true } },
-            },
+            relations: ["actor"],
         });
     }
 
     async markAsRead(id: string) {
-        return this.prisma.notification.update({ where: { id }, data: { read: true } });
+        await this.notifRepo.update(id, { read: true });
+        return this.notifRepo.findOne({ where: { id } });
     }
 
     async markAllAsRead(userId: string) {
-        return this.prisma.notification.updateMany({
-            where: { recipientId: userId, read: false },
-            data: { read: true },
-        });
+        return this.notifRepo.update({ recipientId: userId, read: false }, { read: true });
     }
 }

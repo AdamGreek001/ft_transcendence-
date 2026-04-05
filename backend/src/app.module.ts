@@ -1,6 +1,12 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
-import { ThrottlerModule } from "@nestjs/throttler";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
+
+import { appConfig, jwtConfig, dbConfig, uploadConfig, googleConfig, vaultConfig } from "./config/configuration";
+import { HealthController } from "./common/health.controller";
+
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PostsModule } from "./modules/posts/posts.module";
@@ -10,18 +16,29 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { MediaModule } from "./modules/media/media.module";
 import { SearchModule } from "./modules/search/search.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
-import { PrismaService } from "./common/prisma.service";
-import { HealthController } from "./common/health.controller";
 
 @Module({
     imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        ThrottlerModule.forRoot([
-            {
-                ttl: 60000,
-                limit: 100,
-            },
-        ]),
+        ConfigModule.forRoot({
+            isGlobal: true,
+            load: [appConfig, jwtConfig, dbConfig, uploadConfig, googleConfig, vaultConfig],
+        }),
+
+        TypeOrmModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({
+                type: "postgres" as const,
+                url: config.get<string>("DATABASE_URL"),
+                entities: [__dirname + "/entities/*.entity{.ts,.js}"],
+                migrations: [__dirname + "/migrations/*{.ts,.js}"],
+                synchronize: config.get<string>("NODE_ENV") === "development",
+                logging: config.get<string>("NODE_ENV") === "development",
+            }),
+        }),
+
+        ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+
         AuthModule,
         UsersModule,
         PostsModule,
@@ -33,7 +50,8 @@ import { HealthController } from "./common/health.controller";
         PublicApiModule,
     ],
     controllers: [HealthController],
-    providers: [PrismaService],
-    exports: [PrismaService],
+    providers: [
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+    ],
 })
 export class AppModule { }

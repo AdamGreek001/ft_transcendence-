@@ -1,34 +1,35 @@
 import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma.service";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, ILike } from "typeorm";
+import { User } from "../../entities/user.entity";
+import { Post } from "../../entities/post.entity";
 
 @Injectable()
 export class SearchService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        @InjectRepository(User) private readonly userRepo: Repository<User>,
+        @InjectRepository(Post) private readonly postRepo: Repository<Post>,
+    ) { }
 
     async search(query: string, type?: "users" | "posts") {
-        const results: { users?: any[]; posts?: any[] } = {};
+        const results: { users?: User[]; posts?: Post[] } = {};
 
         if (!type || type === "users") {
-            results.users = await this.prisma.user.findMany({
-                where: {
-                    OR: [
-                        { username: { contains: query, mode: "insensitive" } },
-                        { displayName: { contains: query, mode: "insensitive" } },
-                    ],
-                },
-                select: { id: true, username: true, displayName: true, avatarUrl: true },
+            results.users = await this.userRepo.find({
+                where: [
+                    { username: ILike(`%${query}%`) },
+                    { displayName: ILike(`%${query}%`) },
+                ],
+                select: ["id", "username", "displayName", "avatarUrl"],
                 take: 20,
             });
         }
 
         if (!type || type === "posts") {
-            results.posts = await this.prisma.post.findMany({
-                where: { content: { contains: query, mode: "insensitive" } },
-                include: {
-                    author: { select: { id: true, username: true, avatarUrl: true } },
-                    _count: { select: { likes: true, comments: true } },
-                },
-                orderBy: { createdAt: "desc" },
+            results.posts = await this.postRepo.find({
+                where: { content: ILike(`%${query}%`) },
+                relations: ["author"],
+                order: { createdAt: "DESC" },
                 take: 20,
             });
         }

@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 
 interface ProfilePageProps {
     params: Promise<{ username: string }>;
@@ -6,7 +6,7 @@ interface ProfilePageProps {
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
     const { username } = await params;
-    const t = useTranslations("profile");
+    const t = await getTranslations("profile");
 
     return (
         <div className="mx-auto max-w-3xl px-4 py-8">
