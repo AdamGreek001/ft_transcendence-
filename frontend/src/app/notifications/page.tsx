@@ -129,7 +129,7 @@ export default function NotificationsPage() {
     return (
         <div className="flex h-screen bg-[#0d0d0f]">
             {/* Left Sidebar */}
-            <AppSidebar showPostButton />
+            <AppSidebar />
 
             {/* Main Content */}
             <main className="flex-1 border-r border-gray-800/50 overflow-y-auto">
