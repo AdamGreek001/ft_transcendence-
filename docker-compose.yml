@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ─── WAF / ModSecurity ─────────────────────────────────────────
   waf:
@@ -8,8 +6,12 @@ services:
       dockerfile: Dockerfile
     container_name: ft_waf
     ports:
-      - "${NGINX_HTTP_PORT:-8080}:80"
-      - "${NGINX_HTTPS_PORT:-8443}:443"
+      - "${NGINX_HTTP_PORT:-8080}:8080"
+      - "${NGINX_HTTPS_PORT:-8443}:8443"
+    environment:
+      - BACKEND=http://nginx:80
+      - PROXY_SSL_CERT=/etc/nginx/conf/server.crt
+      - PROXY_SSL_CERT_KEY=/etc/nginx/conf/server.key
     depends_on:
       nginx:
         condition: service_started
@@ -26,6 +28,7 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: ft_nginx
+    # No external port - all traffic goes through WAF
     expose:
       - "80"
     depends_on:
@@ -44,8 +47,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: ft_frontend
-    expose:
-      - "3000"
+    ports:
+      - "3010:3000"
     networks:
       - app-network
     restart: unless-stopped
@@ -57,8 +60,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: ft_backend
-    expose:
-      - "${BACKEND_PORT:-3001}"
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +86,7 @@ services:
       context: ./postgres
       dockerfile: Dockerfile
     container_name: ft_postgres
+    # No external port exposure for security - only internal access
     expose:
       - "5432"
     healthcheck:
@@ -106,8 +110,8 @@ services:
     container_name: ft_vault
     cap_add:
       - IPC_LOCK
-    expose:
-      - "8200"
+    ports:
+      - "8200:8200"
     volumes:
       - vault_data:/vault/data
     networks:
@@ -121,8 +125,8 @@ services:
       context: ./monitoring/prometheus
       dockerfile: Dockerfile
     container_name: ft_prometheus
-    expose:
-      - "9090"
+    ports:
+      - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
     networks:
@@ -135,8 +139,8 @@ services:
       context: ./monitoring/grafana
       dockerfile: Dockerfile
     container_name: ft_grafana
-    expose:
-      - "3000"
+    ports:
+      - "3100:3000"
     depends_on:
       - prometheus
     volumes:

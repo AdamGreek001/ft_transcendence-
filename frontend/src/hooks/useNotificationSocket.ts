@@ -4,11 +4,13 @@ import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useAuthStore } from "@/store/auth";
 import { useNotificationsStore, type Notification } from "@/store/notifications";
+import { useMessagesStore } from "@/store/messages";
 
 export function useNotificationSocket() {
     const socketRef = useRef<Socket | null>(null);
     const token = useAuthStore((s) => s.accessToken);
     const { addNotification, setUnreadCount, setConnected } = useNotificationsStore();
+    const { setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
 
     useEffect(() => {
         if (!token) return;
@@ -56,6 +58,11 @@ export function useNotificationSocket() {
                     : undefined,
             };
             addNotification(notification);
+            
+            // If it's a message notification, also increment message unread count
+            if (data.type === "message") {
+                setMessagesUnreadCount((prev: number) => prev + 1);
+            }
         });
 
         // Handle unread count updates
@@ -63,13 +70,19 @@ export function useNotificationSocket() {
             console.log("Unread count update:", data.count);
             setUnreadCount(data.count);
         });
+        
+        // Handle message unread count updates
+        socket.on("messages:count", (data: { count: number }) => {
+            console.log("Messages unread count update:", data.count);
+            setMessagesUnreadCount(data.count);
+        });
 
         socketRef.current = socket;
 
         return () => {
             socket.disconnect();
         };
-    }, [token, addNotification, setUnreadCount, setConnected]);
+    }, [token, addNotification, setUnreadCount, setConnected, setMessagesUnreadCount]);
 
     return socketRef.current;
 }

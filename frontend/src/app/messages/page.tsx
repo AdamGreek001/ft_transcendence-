@@ -6,6 +6,8 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatSocket } from "@/hooks/useChatSocket";
+import { useNotificationsStore } from "@/store/notifications";
+import { useMessagesStore } from "@/store/messages";
 import type { ChatConversation, Message } from "@/types";
 
 interface MessageGroup {
@@ -55,6 +57,10 @@ export default function MessagesPage() {
     const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    
+    // Notification stores
+    const { setUnreadCount: setNotificationUnreadCount } = useNotificationsStore();
+    const { setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
 
     // Handle incoming WebSocket messages
     const handleIncomingMessage = useCallback((message: Message) => {
@@ -327,7 +333,7 @@ export default function MessagesPage() {
     };
 
     // Handle conversation selection
-    const handleSelectConversation = (convId: string) => {
+    const handleSelectConversation = async (convId: string) => {
         setSelectedConversationId(convId);
         setTypingUsers(new Set()); // Clear typing indicators when switching conversations
         
@@ -340,6 +346,18 @@ export default function MessagesPage() {
         setConversations(prev => prev.map(conv =>
             conv.id === convId ? { ...conv, unreadCount: 0 } : conv
         ));
+        
+        // Update sidebar badge counts
+        try {
+            const [notifCount, msgCount] = await Promise.all([
+                apiClient.get<{ count: number }>("/notifications/unread-count"),
+                apiClient.get<{ count: number }>("/chat/unread-count"),
+            ]);
+            setNotificationUnreadCount(notifCount.count);
+            setMessagesUnreadCount(msgCount.count);
+        } catch (error) {
+            console.error("Failed to update unread counts:", error);
+        }
     };
 
     const selectedConversation = conversations.find((c) => c.id === selectedConversationId);

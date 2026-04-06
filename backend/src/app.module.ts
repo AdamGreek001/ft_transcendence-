@@ -32,7 +32,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
                 url: config.get<string>("DATABASE_URL"),
                 entities: [__dirname + "/entities/*.entity{.ts,.js}"],
                 migrations: [__dirname + "/migrations/*{.ts,.js}"],
-                synchronize: config.get<string>("NODE_ENV") === "development",
+                synchronize: true, // Creates tables from entities
                 logging: config.get<string>("NODE_ENV") === "development",
             }),
         }),

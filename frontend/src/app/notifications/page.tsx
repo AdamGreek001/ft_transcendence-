@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { io, type Socket } from "socket.io-client";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotificationsStore } from "@/store/notifications";
+import { useAuthStore } from "@/store/auth";
 
 type NotificationType = "like" | "follow" | "comment" | "mention" | "repost" | "message" | "system";
 
@@ -145,10 +148,52 @@ function NotificationIcon({ type }: { type: NotificationType }) {
 
 export default function NotificationsPage() {
     const { isAuthenticated, isHydrated, user } = useAuth();
+    const token = useAuthStore((s) => s.accessToken);
     const [activeTab, setActiveTab] = useState<"all" | "mentions" | "verified">("all");
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const socketRef = useRef<Socket | null>(null);
+    const { setUnreadCount, markAsRead: markStoreAsRead, markAllAsRead: markStoreAllAsRead } = useNotificationsStore();
 
+    // Initialize WebSocket for real-time notifications
+    useEffect(() => {
+        if (!token) return;
+
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+        const socket = io(`${wsUrl}/notifications`, {
+            auth: { token },
+            transports: ["websocket"],
+            autoConnect: true,
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+        });
+
+        socket.on("connect", () => {
+            console.log("Notifications WebSocket connected on page");
+        });
+
+        // Listen for new notifications
+        socket.on("notification", (data: any) => {
+            console.log("Received real-time notification:", data);
+            const notification = mapBackendNotification(data);
+            setNotifications(prev => [notification, ...prev]);
+        });
+
+        // Listen for unread count updates
+        socket.on("notification:count", (data: { count: number }) => {
+            console.log("Unread count update:", data.count);
+            setUnreadCount(data.count);
+        });
+
+        socketRef.current = socket;
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [token, setUnreadCount]);
+
+    // Fetch initial notifications on page load
     useEffect(() => {
         if (!isHydrated || !isAuthenticated) return;
 
@@ -172,6 +217,7 @@ export default function NotificationsPage() {
         try {
             await apiClient.patch(`/notifications/${id}/read`);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+            markStoreAsRead(id);
         } catch (error) {
             console.error("Failed to mark notification as read:", error);
         }
@@ -181,10 +227,22 @@ export default function NotificationsPage() {
         try {
             await apiClient.patch("/notifications/read-all");
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            markStoreAllAsRead();
         } catch (error) {
             console.error("Failed to mark all as read:", error);
         }
     };
+
+    // Filter notifications by active tab
+    const filteredNotifications = notifications.filter(notif => {
+        if (activeTab === "mentions") {
+            return notif.type === "mention";
+        }
+        if (activeTab === "verified") {
+            return notif.isVerified;
+        }
+        return true;
+    });
 
     return (
         <div className="flex h-screen bg-[#0d0d0f]">
@@ -243,10 +301,10 @@ export default function NotificationsPage() {
                 <div className="divide-y divide-gray-800/50">
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-500">Loading notifications...</div>
-                    ) : notifications.length === 0 ? (
+                    ) : filteredNotifications.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">No notifications yet</div>
                     ) : (
-                        notifications.map((notification) => (
+                        filteredNotifications.map((notification) => (
                             <div 
                                 key={notification.id} 
                                 className={`p-4 hover:bg-gray-800/20 transition cursor-pointer ${!notification.read ? 'bg-violet-500/5' : ''}`}
