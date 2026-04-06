@@ -4,11 +4,12 @@ import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
 import { User } from "../../entities/user.entity";
 import { Follow } from "../../entities/follow.entity";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Follow])],
+    imports: [TypeOrmModule.forFeature([User, Follow]), AuthModule],
     controllers: [UsersController],
     providers: [UsersService],
     exports: [UsersService],
 })
-export class UsersModule { }
+export class UsersModule {}

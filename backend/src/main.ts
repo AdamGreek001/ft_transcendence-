@@ -1,5 +1,5 @@
-import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { NestFactory, Reflector } from "@nestjs/core";
+import { ValidationPipe, ClassSerializerInterceptor } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
@@ -26,6 +26,9 @@ async function bootstrap() {
             transform: true,
         }),
     );
+
+    // Serialization (removes @Exclude() fields from responses)
+    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
     // WebSocket adapter
     app.useWebSocketAdapter(new IoAdapter(app));

@@ -10,7 +10,13 @@ export class MediaService {
     private readonly uploadDir: string;
 
     constructor(private readonly config: ConfigService) {
-        this.uploadDir = config.get<string>("UPLOAD_DIR", "/app/uploads");
+        // Use local uploads directory when running outside Docker
+        // Check if /app exists (Docker) or use local cwd/uploads
+        const isDocker = fs.existsSync("/app") && process.cwd().startsWith("/app");
+        const defaultDir = isDocker
+            ? "/app/uploads" 
+            : path.join(process.cwd(), "uploads");
+        this.uploadDir = config.get<string>("UPLOAD_DIR", defaultDir);
         this.ensureDirectories();
     }
 
@@ -20,6 +26,7 @@ export class MediaService {
             const fullPath = path.join(this.uploadDir, dir);
             if (!fs.existsSync(fullPath)) {
                 fs.mkdirSync(fullPath, { recursive: true });
+                this.logger.log(`Created directory: ${fullPath}`);
             }
         }
     }

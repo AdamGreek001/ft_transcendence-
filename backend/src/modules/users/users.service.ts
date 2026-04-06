@@ -9,12 +9,16 @@ export class UsersService {
     constructor(
         @InjectRepository(User) private readonly userRepo: Repository<User>,
         @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
-    ) { }
+    ) {}
+
+    async findById(id: string) {
+        return this.userRepo.findOne({ where: { id } });
+    }
 
     async findByUsername(username: string) {
         const user = await this.userRepo.findOne({
             where: { username },
-            select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt"],
+            select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt", "isOnline", "lastSeenAt"],
         });
         if (!user) throw new NotFoundException("User not found");
 
@@ -27,9 +31,16 @@ export class UsersService {
         return { ...user, _count: { posts: postCount, followers: followerCount, following: followingCount } };
     }
 
-    async updateProfile(id: string, data: { displayName?: string; bio?: string }) {
+    async updateProfile(id: string, data: { displayName?: string; bio?: string; avatarUrl?: string }) {
         await this.userRepo.update(id, data);
         return this.userRepo.findOne({ where: { id } });
+    }
+
+    async updateOnlineStatus(userId: string, isOnline: boolean) {
+        await this.userRepo.update(userId, {
+            isOnline,
+            lastSeenAt: isOnline ? null : new Date(),
+        });
     }
 
     async getFollowers(userId: string) {

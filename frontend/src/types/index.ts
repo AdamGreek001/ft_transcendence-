@@ -55,6 +55,8 @@ export interface Message {
     conversationId: string;
     isMine: boolean;
     createdAt: string;
+    senderName?: string;
+    senderAvatar?: string | null;
 }
 
 export interface ChatConversation {
@@ -64,6 +66,8 @@ export interface ChatConversation {
     lastMessage: string;
     lastMessageAt: string;
     unreadCount: number;
+    otherUserId?: string;
+    isOnline?: boolean;
 }
 
 /* ─── Notification ────────────────────────────────────────── */

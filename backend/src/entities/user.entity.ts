@@ -6,6 +6,7 @@ import {
     UpdateDateColumn,
     OneToMany,
 } from "typeorm";
+import { Exclude } from "class-transformer";
 import { Post } from "./post.entity";
 import { Comment } from "./comment.entity";
 import { Like } from "./like.entity";
@@ -25,6 +26,7 @@ export class User {
     @Column({ type: "varchar", length: 255, unique: true })
     email: string;
 
+    @Exclude()
     @Column({ type: "varchar", nullable: true, name: "password_hash" })
     passwordHash: string | null;
 
@@ -37,12 +39,15 @@ export class User {
     @Column({ type: "varchar", nullable: true, name: "avatar_url" })
     avatarUrl: string | null;
 
+    @Exclude()
     @Column({ type: "varchar", length: 20, nullable: true, name: "oauth_provider" })
     oauthProvider: string | null;
 
+    @Exclude()
     @Column({ type: "varchar", length: 100, nullable: true, name: "oauth_id" })
     oauthId: string | null;
 
+    @Exclude()
     @Column({ type: "varchar", nullable: true, name: "two_factor_secret" })
     twoFactorSecret: string | null;
 

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, type FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { apiClient } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useChatSocket } from "@/hooks/useChatSocket";
 import type { ChatConversation, Message } from "@/types";
 
 interface MessageGroup {
@@ -10,88 +13,206 @@ interface MessageGroup {
     messages: Message[];
 }
 
+interface ConversationResponse {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    lastMessage: string | null;
+    lastMessageAt: string | null;
+    unreadCount: number;
+    otherUser: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        isOnline: boolean;
+    };
+}
+
+interface MessagesResponse {
+    messages: Array<{
+        id: string;
+        content: string;
+        senderId: string;
+        receiverId: string;
+        conversationId: string;
+        read: boolean;
+        createdAt: string;
+        sender: { id: string; username: string; avatarUrl: string | null };
+    }>;
+    total: number;
+    hasMore: boolean;
+}
+
 export default function MessagesPage() {
+    const { user, isAuthenticated, isHydrated } = useAuth();
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
-    const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>("1");
+    const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
     const [input, setInput] = useState("");
+    const [isSending, setIsSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
-    // Mock data
-    useEffect(() => {
-        setIsLoading(true);
-        setTimeout(() => {
-            setConversations([
-                {
-                    id: "1",
-                    name: "Design Team",
-                    avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=DT&backgroundColor=22c55e",
-                    lastMessage: "Meeting starts in 5 minutes...",
-                    lastMessageAt: new Date().toISOString(),
-                    unreadCount: 0,
-                },
-                {
-                    id: "2",
-                    name: "Jordan Smith",
-                    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=jordan",
-                    lastMessage: "Check out these new assets",
-                    lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
-                    unreadCount: 2,
-                },
-                {
-                    id: "3",
-                    name: "Sarah Connor",
-                    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-                    lastMessage: "Thanks for the feedback!",
-                    lastMessageAt: new Date(Date.now() - 86400000).toISOString(),
-                    unreadCount: 0,
-                },
-            ]);
-            setIsLoading(false);
-        }, 500);
+    // Handle incoming WebSocket messages
+    const handleIncomingMessage = useCallback((message: Message) => {
+        // Skip messages we sent ourselves (we handle those via optimistic updates)
+        if (message.isMine) {
+            // Still update conversation list for our own messages from other devices
+            setConversations(prev => prev.map(conv => {
+                if (conv.id === message.conversationId) {
+                    return {
+                        ...conv,
+                        lastMessage: message.content,
+                        lastMessageAt: message.createdAt,
+                    };
+                }
+                return conv;
+            }));
+            return;
+        }
+
+        // Add message if it's for the current conversation
+        setMessages(prev => {
+            // Avoid duplicates
+            if (prev.some(m => m.id === message.id)) {
+                return prev;
+            }
+            // Only add to current conversation
+            if (message.conversationId === selectedConversationId) {
+                return [...prev, message];
+            }
+            return prev;
+        });
+
+        // Update conversation list with new message preview
+        setConversations(prev => prev.map(conv => {
+            if (conv.id === message.conversationId) {
+                return {
+                    ...conv,
+                    lastMessage: message.content,
+                    lastMessageAt: message.createdAt,
+                    unreadCount: conv.id !== selectedConversationId ? conv.unreadCount + 1 : conv.unreadCount,
+                };
+            }
+            return conv;
+        }));
+    }, [selectedConversationId]);
+
+    // Handle typing indicators
+    const handleTyping = useCallback((data: { userId: string; conversationId?: string }) => {
+        // Show typing indicator if:
+        // 1. The conversationId matches, OR
+        // 2. The userId matches the other user in the selected conversation
+        const selectedConv = conversations.find(c => c.id === selectedConversationId);
+        const isFromCurrentChat = data.conversationId === selectedConversationId || 
+            (selectedConv && selectedConv.otherUserId === data.userId);
+        
+        if (isFromCurrentChat) {
+            setTypingUsers(prev => new Set(prev).add(data.userId));
+        }
+    }, [selectedConversationId, conversations]);
+
+    const handleStopTyping = useCallback((data: { userId: string; conversationId?: string }) => {
+        setTypingUsers(prev => {
+            const next = new Set(prev);
+            next.delete(data.userId);
+            return next;
+        });
     }, []);
+
+    // Handle user online/offline status
+    const handleUserOnline = useCallback((data: { userId: string }) => {
+        setConversations(prev => prev.map(conv => {
+            if (conv.otherUserId === data.userId) {
+                return { ...conv, isOnline: true };
+            }
+            return conv;
+        }));
+    }, []);
+
+    const handleUserOffline = useCallback((data: { userId: string }) => {
+        setConversations(prev => prev.map(conv => {
+            if (conv.otherUserId === data.userId) {
+                return { ...conv, isOnline: false };
+            }
+            return conv;
+        }));
+    }, []);
+
+    // Connect to WebSocket for real-time messaging
+    const { isConnected, sendMessage: sendWsMessage, sendTyping, sendStopTyping, markAsRead } = useChatSocket({
+        onMessage: handleIncomingMessage,
+        onTyping: handleTyping,
+        onStopTyping: handleStopTyping,
+        onUserOnline: handleUserOnline,
+        onUserOffline: handleUserOffline,
+    });
+
+    // Fetch conversations from backend
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated) return;
+
+        const fetchConversations = async () => {
+            setIsLoading(true);
+            try {
+                const data = await apiClient.get<ConversationResponse[]>("/chat/conversations");
+                setConversations(data.map(conv => ({
+                    id: conv.id,
+                    name: conv.otherUser?.displayName || conv.otherUser?.username || conv.name,
+                    avatarUrl: conv.otherUser?.avatarUrl || conv.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${conv.name}`,
+                    lastMessage: conv.lastMessage || "",
+                    lastMessageAt: conv.lastMessageAt || new Date().toISOString(),
+                    unreadCount: conv.unreadCount,
+                    otherUserId: conv.otherUser?.id,
+                    isOnline: conv.otherUser?.isOnline || false,
+                })));
+                // Select first conversation by default
+                if (data.length > 0 && !selectedConversationId) {
+                    setSelectedConversationId(data[0].id);
+                }
+            } catch (error) {
+                console.error("Failed to fetch conversations:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchConversations();
+    }, [isHydrated, isAuthenticated]);
 
     // Load messages for selected conversation
     useEffect(() => {
-        if (!selectedConversationId) {
+        if (!selectedConversationId || !isAuthenticated) {
             setMessages([]);
             return;
         }
 
-        setIsLoading(true);
-        setTimeout(() => {
-            const mockMessages: Message[] = [
-                {
-                    id: "m1",
-                    content: "Hey team! I've uploaded the final prototypes for the chat interface. Take a look when you can.",
-                    senderId: "user1",
-                    conversationId: selectedConversationId,
-                    isMine: false,
-                    createdAt: new Date(Date.now() - 3600000).toISOString(),
-                },
-                {
-                    id: "m3",
-                    content: "They look great, Jordan! Love the new notification badges. We should sync for 5 mins before the meeting.",
-                    senderId: "me",
-                    conversationId: selectedConversationId,
-                    isMine: true,
-                    createdAt: new Date(Date.now() - 2400000).toISOString(),
-                },
-                {
-                    id: "m4",
-                    content: "Meeting starts in 5 minutes. I'll open the room now.",
-                    senderId: "user1",
-                    conversationId: selectedConversationId,
-                    isMine: false,
-                    createdAt: new Date(Date.now() - 300000).toISOString(),
-                },
-            ];
-            setMessages(mockMessages);
-            setIsLoading(false);
-        }, 300);
-    }, [selectedConversationId]);
+        const fetchMessages = async () => {
+            try {
+                const data = await apiClient.get<MessagesResponse>(`/chat/conversations/${selectedConversationId}/messages`);
+                setMessages(data.messages.map(msg => ({
+                    id: msg.id,
+                    content: msg.content,
+                    senderId: msg.senderId,
+                    conversationId: msg.conversationId,
+                    isMine: msg.senderId === user?.id,
+                    createdAt: msg.createdAt,
+                    senderName: msg.sender?.username,
+                    senderAvatar: msg.sender?.avatarUrl,
+                })));
+                
+                // Mark conversation as read
+                await apiClient.patch(`/chat/conversations/${selectedConversationId}/read`);
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+            }
+        };
+
+        fetchMessages();
+    }, [selectedConversationId, isAuthenticated, user?.id]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -101,41 +222,124 @@ export default function MessagesPage() {
         scrollToBottom();
     }, [messages]);
 
-    const handleSendMessage = (e: FormEvent) => {
+    const handleSendMessage = async (e: FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || !selectedConversationId) return;
+        if (!input.trim() || !selectedConversationId || isSending) return;
 
-        const newMessage: Message = {
-            id: `m${Date.now()}`,
-            content: input,
-            senderId: "me",
+        const selectedConv = conversations.find(c => c.id === selectedConversationId);
+        const receiverId = (selectedConv as ChatConversation & { otherUserId?: string })?.otherUserId;
+        
+        if (!receiverId) {
+            console.error("No receiver ID found");
+            return;
+        }
+
+        setIsSending(true);
+        const messageContent = input;
+        setInput("");
+
+        // Optimistically add message
+        const tempMessage: Message = {
+            id: `temp-${Date.now()}`,
+            content: messageContent,
+            senderId: user?.id || "",
             conversationId: selectedConversationId,
             isMine: true,
             createdAt: new Date().toISOString(),
         };
+        setMessages(prev => [...prev, tempMessage]);
 
-        setMessages([...messages, newMessage]);
-        setInput("");
+        // Stop typing indicator
+        sendStopTyping(receiverId, selectedConversationId);
 
-        setConversations((prevConversations) =>
-            prevConversations.map((conv) =>
+        try {
+            // Send via WebSocket for real-time delivery
+            if (isConnected) {
+                const result = await sendWsMessage(receiverId, messageContent);
+                if (result.success && result.message) {
+                    // Update with real message from server
+                    setMessages(prev => prev.map(msg => 
+                        msg.id === tempMessage.id 
+                            ? { ...msg, id: result.message!.id }
+                            : msg
+                    ));
+                } else {
+                    throw new Error(result.error || "Failed to send message");
+                }
+            } else {
+                // Fallback to REST API if WebSocket not connected
+                const response = await apiClient.post<{ id: string; content: string; createdAt: string }>("/chat/messages", {
+                    receiverId,
+                    content: messageContent,
+                });
+
+                // Update with real message
+                setMessages(prev => prev.map(msg => 
+                    msg.id === tempMessage.id 
+                        ? { ...msg, id: response.id }
+                        : msg
+                ));
+            }
+
+            // Update conversation last message
+            setConversations(prev => prev.map(conv =>
                 conv.id === selectedConversationId
-                    ? { ...conv, lastMessage: input, lastMessageAt: new Date().toISOString() }
+                    ? { ...conv, lastMessage: messageContent, lastMessageAt: new Date().toISOString() }
                     : conv
-            )
-        );
+            ));
+        } catch (error) {
+            console.error("Failed to send message:", error);
+            // Remove optimistic message on error
+            setMessages(prev => prev.filter(msg => msg.id !== tempMessage.id));
+            setInput(messageContent);
+        } finally {
+            setIsSending(false);
+        }
+    };
 
-        setTimeout(() => {
-            const response: Message = {
-                id: `m${Date.now() + 1}`,
-                content: "That sounds great!",
-                senderId: "user1",
-                conversationId: selectedConversationId,
-                isMine: false,
-                createdAt: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, response]);
-        }, 1500);
+    // Handle input change with typing indicator
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
+    const handleInputChange = (value: string) => {
+        setInput(value);
+        
+        const selectedConv = conversations.find(c => c.id === selectedConversationId);
+        const receiverId = (selectedConv as ChatConversation & { otherUserId?: string })?.otherUserId;
+        
+        if (!receiverId || !isConnected) return;
+
+        // Send typing indicator
+        if (value.trim()) {
+            sendTyping(receiverId, selectedConversationId);
+            
+            // Clear existing timeout
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+            }
+            
+            // Stop typing after 2 seconds of inactivity
+            typingTimeoutRef.current = setTimeout(() => {
+                sendStopTyping(receiverId, selectedConversationId);
+            }, 2000);
+        } else {
+            sendStopTyping(receiverId, selectedConversationId);
+        }
+    };
+
+    // Handle conversation selection
+    const handleSelectConversation = (convId: string) => {
+        setSelectedConversationId(convId);
+        setTypingUsers(new Set()); // Clear typing indicators when switching conversations
+        
+        // Mark as read via WebSocket
+        if (isConnected) {
+            markAsRead(convId);
+        }
+        
+        // Update unread count locally
+        setConversations(prev => prev.map(conv =>
+            conv.id === convId ? { ...conv, unreadCount: 0 } : conv
+        ));
     };
 
     const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
@@ -234,7 +438,7 @@ export default function MessagesPage() {
                     {conversations.map((conv) => (
                         <button
                             key={conv.id}
-                            onClick={() => setSelectedConversationId(conv.id)}
+                            onClick={() => handleSelectConversation(conv.id)}
                             className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                                 selectedConversationId === conv.id
                                     ? "bg-gray-800/50"
@@ -243,7 +447,7 @@ export default function MessagesPage() {
                         >
                             <div className="relative">
                                 <Avatar src={conv.avatarUrl} alt={conv.name} size={48} />
-                                {conv.id === "1" && (
+                                {conv.isOnline && (
                                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0d0d0f] rounded-full"></span>
                                 )}
                             </div>
@@ -274,7 +478,17 @@ export default function MessagesPage() {
                                 <Avatar src={selectedConversation.avatarUrl} alt={selectedConversation.name} size={40} />
                                 <div>
                                     <h2 className="font-semibold text-white">{selectedConversation.name}</h2>
-                                    <p className="text-xs text-violet-400">4 members active</p>
+                                    <p className="text-xs text-gray-400 flex items-center gap-1">
+                                        {selectedConversation.isOnline ? (
+                                            <>
+                                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                                <span className="text-green-400">Online</span>
+                                            </>
+                                        ) : (
+                                            <span>Offline</span>
+                                        )}
+                                        {isConnected && <span className="ml-2 text-violet-400">• Connected</span>}
+                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -348,6 +562,12 @@ export default function MessagesPage() {
 
                         {/* Message Input */}
                         <div className="p-4 border-t border-gray-800/50">
+                            {/* Typing indicator */}
+                            {typingUsers.size > 0 && (
+                                <div className="text-xs text-gray-400 mb-2 pl-2">
+                                    Someone is typing...
+                                </div>
+                            )}
                             <form onSubmit={handleSendMessage} className="flex items-center gap-3">
                                 <button type="button" className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800/50 rounded-full transition">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,7 +577,7 @@ export default function MessagesPage() {
                                 <input
                                     type="text"
                                     value={input}
-                                    onChange={(e) => setInput(e.target.value)}
+                                    onChange={(e) => handleInputChange(e.target.value)}
                                     placeholder="Type a message..."
                                     className="flex-1 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                                 />

@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Avatar } from "@/components/ui";
+import { useNotificationsStore } from "@/store/notifications";
+import { useNotificationSocket } from "@/hooks/useNotificationSocket";
+import { apiClient } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 
 interface NavItem {
     href: string;
     label: string;
     icon: React.ComponentType<{ className?: string; filled?: boolean }>;
-    badge?: number;
+    badgeKey?: "notifications" | "messages";
 }
 
 function HomeIcon({ className, filled }: { className?: string; filled?: boolean }) {
@@ -87,8 +92,8 @@ function ProfileIcon({ className, filled }: { className?: string; filled?: boole
 const navItems: NavItem[] = [
     { href: "/feed", label: "Home", icon: HomeIcon },
     { href: "/explore", label: "Explore", icon: ExploreIcon },
-    { href: "/messages", label: "Messages", icon: MessagesIcon, badge: 3 },
-    { href: "/notifications", label: "Notifications", icon: NotificationsIcon },
+    { href: "/messages", label: "Messages", icon: MessagesIcon, badgeKey: "messages" },
+    { href: "/notifications", label: "Notifications", icon: NotificationsIcon, badgeKey: "notifications" },
     { href: "/profile", label: "Profile", icon: ProfileIcon },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -103,10 +108,30 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ 
-    user = { name: "Alex Rivera", username: "@arivera", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex" },
+    user = { name: "LATINO", username: "@latino", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex" },
     showPostButton = false 
 }: AppSidebarProps) {
     const pathname = usePathname();
+    const { unreadCount, setUnreadCount } = useNotificationsStore();
+    const accessToken = useAuthStore((s) => s.accessToken);
+    
+    // Initialize notification WebSocket connection
+    useNotificationSocket();
+
+    // Fetch initial unread count
+    useEffect(() => {
+        if (!accessToken) return;
+        
+        apiClient.get<{ count: number }>("/notifications/unread-count")
+            .then((data) => setUnreadCount(data.count))
+            .catch((err) => console.error("Failed to fetch unread count:", err));
+    }, [accessToken, setUnreadCount]);
+
+    const getBadgeCount = (badgeKey?: "notifications" | "messages") => {
+        if (badgeKey === "notifications") return unreadCount;
+        // TODO: Add messages unread count from a messages store
+        return 0;
+    };
 
     return (
         <aside className="w-56 bg-[#0d0d0f] border-r border-gray-800/50 flex flex-col h-screen sticky top-0">
@@ -127,6 +152,7 @@ export function AppSidebar({
                 {navItems.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     const Icon = item.icon;
+                    const badgeCount = getBadgeCount(item.badgeKey);
                     return (
                         <Link
                             key={item.href}
@@ -141,11 +167,11 @@ export function AppSidebar({
                             <span className="font-medium">
                                 {item.label}
                             </span>
-                            {item.badge && item.badge > 0 && (
+                            {badgeCount > 0 && (
                                 <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${
                                     isActive ? "bg-white/20 text-white" : "bg-violet-500 text-white"
                                 }`}>
-                                    {item.badge}
+                                    {badgeCount > 99 ? "99+" : badgeCount}
                                 </span>
                             )}
                         </Link>

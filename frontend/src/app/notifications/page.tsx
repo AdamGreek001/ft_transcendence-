@@ -1,10 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { apiClient } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
-type NotificationType = "like" | "follow" | "reply" | "repost" | "recommendation";
+type NotificationType = "like" | "follow" | "comment" | "mention" | "repost" | "message" | "system";
+
+interface BackendNotification {
+    id: string;
+    type: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+    actor: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+    };
+}
 
 interface Notification {
     id: string;
@@ -14,56 +30,14 @@ interface Notification {
     quotedContent?: string;
     time: string;
     isVerified?: boolean;
+    read: boolean;
 }
 
-const mockNotifications: Notification[] = [
-    {
-        id: "1",
-        type: "like",
-        users: [
-            { name: "WoolyWanderer", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=wooly" },
-        ],
-        content: "liked your post",
-        quotedContent: "\"Just finished this merino wool scarf! The honeycomb stitch is paying off. #knitting #handmade\"",
-        time: "15m ago",
-    },
-    {
-        id: "2",
-        type: "follow",
-        users: [
-            { name: "FiberArtist", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=fiber" },
-        ],
-        content: "followed you",
-        time: "2h ago",
-    },
-    {
-        id: "3",
-        type: "reply",
-        users: [
-            { name: "ThreadMaster", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=thread" },
-        ],
-        content: "• 2h",
-        quotedContent: "Replying to your pattern question: \"I recommend using a 4.5mm needle for that specific yarn weight to get better tension.\"",
-        time: "2h ago",
-    },
-    {
-        id: "4",
-        type: "repost",
-        users: [
-            { name: "PatternCollector", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=pattern" },
-        ],
-        content: "reposted your thread",
-        time: "5h ago",
-    },
-    {
-        id: "5",
-        type: "recommendation",
-        users: [],
-        content: "Recommended for you",
-        quotedContent: "Based on your interest in \"Natural Dyes\"",
-        time: "",
-    },
-];
+interface NotificationsResponse {
+    data: BackendNotification[];
+    total: number;
+    hasMore: boolean;
+}
 
 const trends = [
     { category: "Knitting • Trending", tag: "#CableKnitWinter", posts: "12.4k posts" },
@@ -75,6 +49,45 @@ const whoToFollow = [
     { name: "SilkMaven", username: "@silk_expert", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=silk" },
     { name: "TheLoomLord", username: "@weaving_king", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=loom" },
 ];
+
+function formatTimeAgo(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return "Yesterday";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function mapBackendNotification(n: BackendNotification): Notification {
+    const typeMap: Record<string, NotificationType> = {
+        like: "like",
+        follow: "follow",
+        comment: "comment",
+        mention: "mention",
+        repost: "repost",
+        message: "message",
+        system: "system",
+    };
+
+    return {
+        id: n.id,
+        type: typeMap[n.type] || "like",
+        users: [{
+            name: n.actor?.displayName || n.actor?.username || "Someone",
+            avatarUrl: n.actor?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${n.actor?.username}`,
+            username: n.actor?.username,
+        }],
+        content: n.message,
+        time: formatTimeAgo(n.createdAt),
+        read: n.read,
+    };
+}
 
 function NotificationIcon({ type }: { type: NotificationType }) {
     switch (type) {
@@ -94,7 +107,8 @@ function NotificationIcon({ type }: { type: NotificationType }) {
                     </svg>
                 </div>
             );
-        case "reply":
+        case "comment":
+        case "mention":
             return (
                 <div className="w-8 h-8 flex items-center justify-center">
                     <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
@@ -110,21 +124,67 @@ function NotificationIcon({ type }: { type: NotificationType }) {
                     </svg>
                 </div>
             );
-        case "recommendation":
+        case "message":
             return (
                 <div className="w-8 h-8 flex items-center justify-center">
                     <svg className="w-5 h-5 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
                     </svg>
                 </div>
             );
         default:
-            return null;
+            return (
+                <div className="w-8 h-8 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
+                    </svg>
+                </div>
+            );
     }
 }
 
 export default function NotificationsPage() {
+    const { isAuthenticated, isHydrated, user } = useAuth();
     const [activeTab, setActiveTab] = useState<"all" | "mentions" | "verified">("all");
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated) return;
+
+        const fetchNotifications = async () => {
+            setIsLoading(true);
+            try {
+                const data = await apiClient.get<NotificationsResponse>("/notifications");
+                setNotifications(data.data.map(mapBackendNotification));
+            } catch (error) {
+                console.error("Failed to fetch notifications:", error);
+                setNotifications([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchNotifications();
+    }, [isHydrated, isAuthenticated]);
+
+    const markAsRead = async (id: string) => {
+        try {
+            await apiClient.patch(`/notifications/${id}/read`);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        } catch (error) {
+            console.error("Failed to mark notification as read:", error);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            await apiClient.patch("/notifications/read-all");
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        } catch (error) {
+            console.error("Failed to mark all as read:", error);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-[#0d0d0f]">
@@ -181,64 +241,45 @@ export default function NotificationsPage() {
 
                 {/* Notifications List */}
                 <div className="divide-y divide-gray-800/50">
-                    {mockNotifications.map((notification) => (
-                        <div key={notification.id} className="p-4 hover:bg-gray-800/20 transition">
-                            <div className="flex gap-3">
-                                <NotificationIcon type={notification.type} />
-                                <div className="flex-1 min-w-0">
-                                    {notification.type === "recommendation" ? (
-                                        <>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <svg className="w-4 h-4 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                                                </svg>
-                                                <span className="text-sm font-medium text-white">{notification.content}</span>
-                                            </div>
-                                            <p className="text-xs text-gray-500 mb-3">{notification.quotedContent}</p>
-                                            <div className="bg-[#1a1a1f] rounded-xl p-4 flex items-center gap-3">
-                                                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-teal-400 flex items-center justify-center">
-                                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                                    </svg>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">Organic Indigo Dyeing Workshop</p>
-                                                    <p className="text-xs text-gray-500">Join 1.2k others in this community project starting next week.</p>
-                                                </div>
-                                                <button className="ml-auto text-gray-500 hover:text-gray-400">
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {notification.users.map((user, idx) => (
-                                                    <Avatar key={idx} src={user.avatarUrl} alt={user.name} size={32} />
-                                                ))}
-                                                <div className="flex items-center gap-1 flex-wrap">
-                                                    <span className="font-semibold text-white">
-                                                        {notification.users.map((u) => u.name).join(", ")}
-                                                    </span>
-                                                    <span className="text-gray-400">{notification.content}</span>
-                                                </div>
-                                                {notification.type === "follow" && (
-                                                    <button className="ml-auto px-4 py-1.5 bg-transparent border border-gray-600 rounded-full text-sm font-medium text-white hover:bg-gray-800/50 transition">
-                                                        Follow back
-                                                    </button>
-                                                )}
-                                            </div>
-                                            {notification.quotedContent && (
-                                                <p className="text-sm text-gray-400 mt-2">{notification.quotedContent}</p>
+                    {isLoading ? (
+                        <div className="p-8 text-center text-gray-500">Loading notifications...</div>
+                    ) : notifications.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">No notifications yet</div>
+                    ) : (
+                        notifications.map((notification) => (
+                            <div 
+                                key={notification.id} 
+                                className={`p-4 hover:bg-gray-800/20 transition cursor-pointer ${!notification.read ? 'bg-violet-500/5' : ''}`}
+                                onClick={() => !notification.read && markAsRead(notification.id)}
+                            >
+                                <div className="flex gap-3">
+                                    <NotificationIcon type={notification.type} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            {notification.users[0] && (
+                                                <Avatar 
+                                                    src={notification.users[0].avatarUrl} 
+                                                    alt={notification.users[0].name} 
+                                                    size={24} 
+                                                />
                                             )}
-                                        </>
-                                    )}
+                                            <span className="font-medium text-white text-sm">
+                                                {notification.users[0]?.name}
+                                            </span>
+                                            <span className="text-gray-500 text-sm">{notification.content}</span>
+                                            <span className="text-gray-600 text-xs">{notification.time}</span>
+                                            {!notification.read && (
+                                                <span className="w-2 h-2 bg-violet-500 rounded-full" />
+                                            )}
+                                        </div>
+                                        {notification.quotedContent && (
+                                            <p className="text-gray-400 text-sm mt-1">{notification.quotedContent}</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </main>
 

@@ -20,8 +20,8 @@ const activityLog = [
 ];
 
 export default function SettingsPage() {
-    const [displayName, setDisplayName] = useState("Alex Rivera");
-    const [username, setUsername] = useState("arivera");
+    const [displayName, setDisplayName] = useState("LATINO");
+    const [username, setUsername] = useState("LATINO");
     const [bio, setBio] = useState("Digital creator & explorer of modern web aesthetics. Building StitchSocial one thread at a time.");
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
 
@@ -79,7 +79,7 @@ export default function SettingsPage() {
                                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center overflow-hidden">
                                         <Avatar
                                             src="https://api.dicebear.com/7.x/avataaars/svg?seed=alex"
-                                            alt="Alex Rivera"
+                                            alt="LATINO"
                                             size={80}
                                         />
                                     </div>
