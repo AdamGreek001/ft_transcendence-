@@ -6,10 +6,11 @@ import { PublicApiService } from "./public-api.service";
 import { User } from "../../entities/user.entity";
 import { Post } from "../../entities/post.entity";
 import { Comment } from "../../entities/comment.entity";
-
+import { AuthModule } from "../auth/auth.module";
 @Module({
     imports: [
         TypeOrmModule.forFeature([User, Post, Comment]),
+        AuthModule,
         ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }]),
     ],
     controllers: [PublicApiController],

@@ -28,3 +28,7 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.home {
+  @apply flex h-screen overflow-hidden bg-[#0f0f0f];
+}

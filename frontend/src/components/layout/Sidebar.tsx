@@ -1,42 +1,53 @@
 "use client";
 
+// import { useTranslations } from "next-intl";
+// import { clsx } from "clsx";
+
+import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
-import { clsx } from "clsx";
+import { Logo } from "./Logo";
+import HomeIcon from '../../../public/icons/home.svg';
+import ExploreIcon from '../../../public/icons/explore.svg';
+import NotificationsIcon from '../../../public/icons/notifications.svg';
+import MessagesIcon from '../../../public/icons/mail.svg';
+import ProfileIcon from '../../../public/icons/person.svg';
+
 
 const sideItems = [
-    { href: "/feed", key: "feed", icon: "🏠" },
-    { href: "/explore", key: "explore", icon: "🔍" },
-    { href: "/messages", key: "messages", icon: "💬" },
-    { href: "/notifications", key: "notifications", icon: "🔔" },
-    { href: "/profile", key: "profile", icon: "👤" },
-    { href: "/settings", key: "settings", icon: "⚙️" },
+    { href: "/feed", key: "feed", icon: <HomeIcon /> },
+    { href: "/explore", key: "explore", icon: <ExploreIcon /> },
+    { href: "/notifications", key: "notifications", icon: <NotificationsIcon /> },
+    { href: "/messages", key: "messages", icon: <MessagesIcon /> },
+    { href: "/profile", key: "profile", icon: <ProfileIcon /> }
 ] as const;
 
 export function Sidebar() {
-    const t = useTranslations("nav");
-    const pathname = usePathname();
 
+    const pathname = usePathname();
     return (
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 border-r border-gray-200 bg-white p-4 lg:block">
-            <nav className="flex flex-col gap-1">
-                {sideItems.map((item) => (
-                    <Link
-                        key={item.key}
-                        href={item.href}
-                        className={clsx(
-                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
-                            pathname.startsWith(item.href)
-                                ? "bg-primary-50 text-primary-700"
-                                : "text-gray-600 hover:bg-gray-100",
-                        )}
-                    >
-                        <span className="text-lg">{item.icon}</span>
-                        {t(item.key)}
-                    </Link>
-                ))}
-            </nav>
+        <aside className="w-64 shrink-0 h-screen flex flex-col justify-between p-6 border-r border-slate-800 bg-[#0f0f0f]">
+            <div className="flex flex-col gap-8">
+                <Logo />
+                <nav className="flex flex-col gap-2 mt-8">
+                    {sideItems.map((item) => {
+                        const active = pathname.startsWith(item.href);
+                        return (
+                            <Link
+                                key={item.key}
+                                href={item.href}
+                                className={`flex items-center gap-4 px-3 py-3 rounded-full text-slate-400 hover:bg-slate-800 transition-colors cursor-pointer
+                                ${active ? "bg-purple-500/10 text-purple-400 font-semibold hover:bg-purple-500/10" : ""}`}
+                            >
+                                {item.icon}
+                                <span>{item.key}</span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+            </div>
         </aside>
     );
 }
+

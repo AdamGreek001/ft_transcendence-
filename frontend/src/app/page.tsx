@@ -1,3 +1,4 @@
+import { Sidebar } from "../components/layout/Sidebar";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -6,6 +7,7 @@ export default function HomePage() {
 
     return (
         <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+            <Sidebar />
             <h1 className="text-4xl font-bold tracking-tight text-primary-600">
                 {t("appName")}
             </h1>
