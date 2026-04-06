@@ -10,7 +10,7 @@ build/
 out/
 
 # Environment
-.env
+# .env
 .env.local
 .env.*.local
 
