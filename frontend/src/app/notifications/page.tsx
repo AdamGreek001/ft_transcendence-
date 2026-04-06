@@ -34,7 +34,7 @@ interface Notification {
 }
 
 interface NotificationsResponse {
-    data: BackendNotification[];
+    notifications: BackendNotification[];
     total: number;
     hasMore: boolean;
 }
@@ -156,7 +156,7 @@ export default function NotificationsPage() {
             setIsLoading(true);
             try {
                 const data = await apiClient.get<NotificationsResponse>("/notifications");
-                setNotifications(data.data.map(mapBackendNotification));
+                setNotifications((data.notifications || []).map(mapBackendNotification));
             } catch (error) {
                 console.error("Failed to fetch notifications:", error);
                 setNotifications([]);
