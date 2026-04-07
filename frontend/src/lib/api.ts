@@ -6,12 +6,9 @@ const API_BASE_URL =
 const instance = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
-    headers: {
-        "Content-Type": "application/json",
-    },
 });
 
-// Attach JWT token to every request
+// Attach JWT token to every request and handle FormData
 instance.interceptors.request.use((config) => {
     if (typeof window !== "undefined") {
         const token = localStorage.getItem("accessToken");
@@ -19,6 +16,12 @@ instance.interceptors.request.use((config) => {
             config.headers.Authorization = `Bearer ${token}`;
         }
     }
+    
+    // Only set Content-Type for non-FormData requests
+    if (!(config.data instanceof FormData)) {
+        config.headers["Content-Type"] = "application/json";
+    }
+    
     return config;
 });
 

@@ -8,20 +8,23 @@ rule_files:
 
 scrape_configs:
   # ─── Backend (NestJS) metrics ─────────────────────────────
-  - job_name: "backend"
-    metrics_path: "/api/metrics"
-    static_configs:
-      - targets: ["backend:3001"]
-        labels:
-          service: "backend"
+  # Uncomment when backend exposes /api/metrics in Prometheus format
+  # - job_name: "backend"
+  #   metrics_path: "/api/metrics"
+  #   static_configs:
+  #     - targets: ["backend:3001"]
+  #       labels:
+  #         service: "backend"
 
   # ─── nginx stub_status metrics ────────────────────────────
-  - job_name: "nginx"
-    metrics_path: "/metrics"
-    static_configs:
-      - targets: ["nginx:80"]
-        labels:
-          service: "nginx"
+  # Note: stub_status is not Prometheus format
+  # For proper metrics, add nginx-prometheus-exporter sidecar
+  # - job_name: "nginx"
+  #   metrics_path: "/metrics"
+  #   static_configs:
+  #     - targets: ["nginx:80"]
+  #       labels:
+  #         service: "nginx"
 
   # ─── Prometheus self-monitoring ───────────────────────────
   - job_name: "prometheus"

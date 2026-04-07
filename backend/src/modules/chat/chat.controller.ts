@@ -8,9 +8,13 @@ import {
     Query,
     UseGuards,
     Req,
+    UseInterceptors,
+    UploadedFile,
 } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiConsumes } from "@nestjs/swagger";
 import { ChatService } from "./chat.service";
+import { MediaService } from "../media/media.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { SendMessageDto, GetMessagesQueryDto } from "./dto";
 
@@ -19,7 +23,10 @@ import { SendMessageDto, GetMessagesQueryDto } from "./dto";
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
-    constructor(private readonly chatService: ChatService) {}
+    constructor(
+        private readonly chatService: ChatService,
+        private readonly mediaService: MediaService,
+    ) {}
 
     @Get("conversations")
     @ApiOperation({ summary: "Get all conversations for current user" })
@@ -67,5 +74,13 @@ export class ChatController {
     async getUnreadCount(@Req() req: any) {
         const count = await this.chatService.getUnreadCount(req.user.sub);
         return { count };
+    }
+
+    @Post("upload")
+    @ApiOperation({ summary: "Upload file for chat" })
+    @ApiConsumes("multipart/form-data")
+    @UseInterceptors(FileInterceptor("file"))
+    async uploadFile(@UploadedFile() file: Express.Multer.File) {
+        return this.mediaService.upload("chat", file);
     }
 }
