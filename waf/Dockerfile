@@ -1,5 +1,7 @@
 FROM owasp/modsecurity-crs:nginx-alpine
 
+USER root
+
 # Copy custom ModSecurity configuration
 COPY modsecurity.conf /etc/modsecurity.d/modsecurity-override.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf

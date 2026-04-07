@@ -1,6 +1,10 @@
 # ── Stage 1: Install all dependencies ──────────────────────────
 FROM node:20-alpine AS deps
 WORKDIR /app
+
+USER root
+RUN mkdir -p /app/uploads/avatars && chmod -R 777 /app/uploads
+
 COPY package.json package-lock.json* ./
 RUN npm ci && \
     npm cache clean --force && \
