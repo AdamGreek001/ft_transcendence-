@@ -18,84 +18,84 @@ import { Notification } from "./notification.entity";
 @Entity("users")
 export class User {
     @PrimaryGeneratedColumn("uuid")
-    id: string;
+    id!: string;
 
     @Column({ type: "varchar", length: 30, unique: true })
-    username: string;
+    username!: string;
 
     @Column({ type: "varchar", length: 255, unique: true })
-    email: string;
+    email!: string;
 
     @Exclude()
     @Column({ type: "varchar", nullable: true, name: "password_hash" })
-    passwordHash: string | null;
+    passwordHash!: string | null;
 
     @Column({ type: "varchar", length: 50, nullable: true, name: "display_name" })
-    displayName: string | null;
+    displayName!: string | null;
 
     @Column({ type: "varchar", length: 500, nullable: true })
-    bio: string | null;
+    bio!: string | null;
 
     @Column({ type: "varchar", nullable: true, name: "avatar_url" })
-    avatarUrl: string | null;
+    avatarUrl!: string | null;
 
     @Exclude()
     @Column({ type: "varchar", length: 20, nullable: true, name: "oauth_provider" })
-    oauthProvider: string | null;
+    oauthProvider!: string | null;
 
     @Exclude()
     @Column({ type: "varchar", length: 100, nullable: true, name: "oauth_id" })
-    oauthId: string | null;
+    oauthId!: string | null;
 
     @Exclude()
     @Column({ type: "varchar", nullable: true, name: "two_factor_secret" })
-    twoFactorSecret: string | null;
+    twoFactorSecret!: string | null;
 
     @Column({ type: "boolean", default: false, name: "two_factor_enabled" })
-    twoFactorEnabled: boolean;
+    twoFactorEnabled!: boolean;
 
     @Column({ type: "boolean", default: false, name: "is_online" })
-    isOnline: boolean;
+    isOnline!: boolean;
 
     @Column({ type: "timestamp", nullable: true, name: "last_seen_at" })
-    lastSeenAt: Date | null;
+    lastSeenAt!: Date | null;
 
     @CreateDateColumn({ name: "created_at" })
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn({ name: "updated_at" })
-    updatedAt: Date;
+    updatedAt!: Date;
 
     @OneToMany(() => Post, (post) => post.author)
-    posts: Post[];
+    posts!: Post[];
 
     @OneToMany(() => Comment, (comment) => comment.author)
-    comments: Comment[];
+    comments!: Comment[];
 
     @OneToMany(() => Like, (like) => like.user)
-    likes: Like[];
+    likes!: Like[];
 
     @OneToMany(() => Follow, (follow) => follow.following)
-    followers: Follow[];
+    followers!: Follow[];
 
     @OneToMany(() => Follow, (follow) => follow.follower)
-    following: Follow[];
+    following!: Follow[];
 
     @OneToMany(() => Block, (block) => block.blocker)
-    blockedUsers: Block[];
+    blockedUsers!: Block[];
 
     @OneToMany(() => Block, (block) => block.blocked)
-    blockedBy: Block[];
+    blockedBy!: Block[];
 
     @OneToMany(() => DirectMessage, (msg) => msg.sender)
-    sentMessages: DirectMessage[];
+    sentMessages!: DirectMessage[];
 
     @OneToMany(() => DirectMessage, (msg) => msg.receiver)
-    receivedMessages: DirectMessage[];
+    receivedMessages!: DirectMessage[];
 
     @OneToMany(() => Notification, (n) => n.recipient)
-    notifications: Notification[];
+    notifications!: Notification[];
 
     @OneToMany(() => Notification, (n) => n.actor)
-    triggeredNotifications: Notification[];
+    triggeredNotifications!: Notification[];
 }

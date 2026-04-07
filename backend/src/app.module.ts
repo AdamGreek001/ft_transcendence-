@@ -4,7 +4,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 
-import { appConfig, jwtConfig, dbConfig, uploadConfig, googleConfig, vaultConfig } from "./config/configuration";
+import {
+  appConfig,
+  jwtConfig,
+  dbConfig,
+  uploadConfig,
+  googleConfig,
+  vaultConfig,
+} from "./config/configuration";
 import { HealthController } from "./common/health.controller";
 
 import { AuthModule } from "./modules/auth/auth.module";
@@ -18,40 +25,50 @@ import { SearchModule } from "./modules/search/search.module";
 import { PublicApiModule } from "./modules/public-api/public-api.module";
 
 @Module({
-    imports: [
-        ConfigModule.forRoot({
-            isGlobal: true,
-            load: [appConfig, jwtConfig, dbConfig, uploadConfig, googleConfig, vaultConfig],
-        }),
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ".env",
+      load: [
+        appConfig,
+        jwtConfig,
+        dbConfig,
+        uploadConfig,
+        googleConfig,
+        vaultConfig,
+      ],
+    }),
 
-        TypeOrmModule.forRootAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: (config: ConfigService) => ({
-                type: "postgres" as const,
-                url: config.get<string>("DATABASE_URL"),
-                entities: [__dirname + "/entities/*.entity{.ts,.js}"],
-                migrations: [__dirname + "/migrations/*{.ts,.js}"],
-                synchronize: true, // Creates tables from entities
-                logging: config.get<string>("NODE_ENV") === "development",
-            }),
-        }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: "postgres",
+        host: config.get<string>("POSTGRES_HOST", "127.0.0.1"), // Default l'localhost
+        port: config.get<number>("POSTGRES_PORT", 5432),
+        username: config.get<string>("POSTGRES_USER"),
+        password: config.get<string>("POSTGRES_PASSWORD"),
+        database: config.get<string>("POSTGRES_DB"),
+        autoLoadEntities: true,
+        // entities: [__dirname + "/**/*.entity{.ts,.js}"],
+        synchronize: true,
+        logging: true,
+      }),
+    }),
 
-        ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
 
-        AuthModule,
-        UsersModule,
-        PostsModule,
-        CommentsModule,
-        ChatModule,
-        NotificationsModule,
-        MediaModule,
-        SearchModule,
-        PublicApiModule,
-    ],
-    controllers: [HealthController],
-    providers: [
-        { provide: APP_GUARD, useClass: ThrottlerGuard },
-    ],
+    AuthModule,
+    UsersModule,
+    PostsModule,
+    CommentsModule,
+    ChatModule,
+    NotificationsModule,
+    MediaModule,
+    SearchModule,
+    PublicApiModule,
+  ],
+  controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule { }
+export class AppModule {}

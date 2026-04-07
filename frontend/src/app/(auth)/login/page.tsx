@@ -1,94 +1,165 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import Link from "next/link";
+import React, { useState } from "react";
+// import Navbar from "@/components/Navbar";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/utils";
+import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { apiClient } from "@/lib/api";
-import { useAuthStore } from "@/store/auth";
-import type { AuthResponse } from "@/types";
 
-export default function LoginPage() {
-    const t = useTranslations("auth");
-    const router = useRouter();
-    const setAuth = useAuthStore((state) => state.setAuth);
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+const LoginPage = () => {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    async function handleSubmit(e: FormEvent) {
-        e.preventDefault();
-        setError("");
-        setIsLoading(true);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-        try {
-            const response = await apiClient.post<AuthResponse>("/auth/login", {
-                email,
-                password,
-            });
-            setAuth(response.accessToken, response.user);
-            router.push("/");
-        } catch (err: unknown) {
-            const error = err as { response?: { data?: { message?: string } } };
-            setError(error.response?.data?.message || "Login failed. Please try again.");
-        } finally {
-            setIsLoading(false);
-        }
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      const token = res.data.accessToken;
+
+      if (token) {
+        Cookies.set("token", token, { expires: 7, path: "/" });
+
+        router.push("/feed");
+      }
+      else {
+        console.error("Token not found in response:", res.data);
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      alert(error.response?.data?.message || "Email or password incorrect!");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <>
-            <h1 className="mb-6 text-center text-2xl font-bold text-white">
-                {t("login")}
-            </h1>
-            {error && (
-                <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
-                    {error}
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* <header className="bg-gray-800">
+        <Navbar buttonText="Sign in" paragraph="Don't have an account ?" />
+      </header> */}
+      <main className="flex-1 flex flex-col items-center justify-center gap-4">
+        <Card className="w-90 max-w-sm bg-gray-900">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-white">
+              Welcom back
+            </CardTitle>
+            <CardDescription className="text-gray-400 text-sm">
+              Enter your details to access your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm text-white" htmlFor="email">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Image
+                    src="/email.png"
+                    alt="email icon"
+                    width={16}
+                    height={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 brightness-150"
+                  />
+                  <Input
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className=" border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    type="email"
+                    placeholder="Bandit@example.com"
+                    required
+                  />
                 </div>
-            )}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-300">
-                    {t("email")}
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2.5 text-white transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
-                    />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm text-white" htmlFor="pass">
+                  Password
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-300">
-                    {t("password")}
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2.5 text-white transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
-                    />
-                </label>
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="rounded-lg bg-primary-600 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700 disabled:opacity-50"
-                >
-                    {isLoading ? "Signing in..." : t("login")}
-                </button>
-                <button
-                    type="button"
-                    className="rounded-lg border border-gray-600 bg-gray-800 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-gray-700"
-                >
-                    Log in with Google
-                </button>
+                <div className="relative">
+                  <Image
+                    src="/lock.png"
+                    alt="user icon"
+                    width={16}
+                    height={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 brightness-150"
+                  />
+                  <Input
+                    id="pass"
+                    className="border border-gray-600 rounded-lg w-80 h-10  pl-10 pr-10 bg-gray-800 pt-3 text-white"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="**********"
+                    required
+                  />
+                </div>
+              </div>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-purple-600 hover:bg-purple-700 w-80 h-12 mt-6 text-lg"
+                size="lg"
+              >
+                {loading ? "Logging in..." : "Log In"}
+              </Button>
             </form>
-            <p className="mt-4 text-center text-sm text-gray-400">
-                <Link href="/register" className="text-primary-400 hover:underline">
-                    {t("register")}
-                </Link>
-            </p>
-        </>
-    );
-}
+            <div className="flex items-center gap-2 mt-3">
+              <div className=" w-20 border-t border-gray-800 my-4"></div>
+              <p className="text-gray-400 font-bold text-xs">
+                OR CONTINUE WITH
+              </p>
+              <div className=" w-20 border-t border-gray-800 my-4"></div>
+            </div>
+            <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
+              <Button
+                onClick={() =>
+                  (window.location.href = "http://localhost:8000/auth/google")
+                }
+                className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+              >
+                Google
+              </Button>
+              <Button className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800">
+                Discord
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex items-center gap-5">
+          <a
+            className="text-sm text-gray-400"
+            href="http://localhost:3000/privacy-policy"
+          >
+            Privacy Policy
+          </a>
+          <a
+            className="text-sm text-gray-400"
+            href="http://localhost:3000/terms-of-service"
+          >
+            Terms of service
+          </a>
+          <a className="text-sm text-gray-400" href="#">
+            Support
+          </a>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default LoginPage;
