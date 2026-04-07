@@ -1,70 +1,222 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import React, { useState } from "react";
+import Navbar from "@/components/auth/Navbar";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { api } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
-export default function RegisterPage() {
-    const t = useTranslations("auth");
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+const SignUpPage = () => {
+  const router = useRouter();
 
-    function handleSubmit(e: FormEvent) {
-        e.preventDefault();
-        // Registration logic will be wired here
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [check, setCheck] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!check) {
+      alert("you must agree to the Terms of service!");
+      return;
     }
 
-    return (
-        <>
-            <h1 className="mb-6 text-center text-2xl font-bold text-gray-900">
-                {t("register")}
-            </h1>
+    setLoading(true);
+    try {
+      console.log("Sifting this data to NestJS:", formData);
+      const res = await api.post("/auth/register", formData);
+      if (res.status === 201) {
+        alert("Account created successfully!");
+        router.push("/login");
+      }
+    } catch (error: any) {
+      console.log("Full Error Object:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
+      console.error("Signup error:", errorMessage);
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* <header className="bg-gray-800">
+        <Navbar buttonText="Log in" paragraph="Already have an account ?" />
+      </header> */}
+
+      <main className="flex-1 grid place-items-center">
+        <Card className="w-90 max-w-sm bg-gray-900 border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-white">
+              Create Account
+            </CardTitle>
+            <CardDescription className="text-gray-400 text-sm">
+              Join thousands of creators stitching together.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    {t("username")}
-                    <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        className="rounded-lg border border-gray-300 px-4 py-2.5 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                    />
+              <div className="grid gap-2">
+                <label className="text-sm text-white" htmlFor="full-name">
+                  Full Name
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    {t("email")}
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="rounded-lg border border-gray-300 px-4 py-2.5 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                    />
+                <div className="relative">
+                  <Image
+                    src="/person.png"
+                    alt="user icon"
+                    width={16}
+                    height={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 brightness-150"
+                  />
+                  <Input
+                    id="full-name"
+                    name="username"
+                    onChange={handleChange}
+                    className="border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    type="text"
+                    placeholder="Bandit Klm"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm text-white" htmlFor="email">
+                  Email Address
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-                    {t("password")}
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        minLength={8}
-                        className="rounded-lg border border-gray-300 px-4 py-2.5 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-                    />
+                <div className="relative">
+                  <Image
+                    src="/email.png"
+                    alt="email icon"
+                    width={16}
+                    height={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 brightness-150"
+                  />
+                  <Input
+                    id="email"
+                    name="email"
+                    onChange={handleChange}
+                    className=" border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    type="email"
+                    placeholder="Bandit@example.com"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm text-white" htmlFor="pass">
+                  Password
                 </label>
-                <button
-                    type="submit"
-                    className="rounded-lg bg-primary-600 py-2.5 text-sm font-medium text-white transition hover:bg-primary-700"
+                <div className="relative">
+                  <Image
+                    src="/lock.png"
+                    alt="user icon"
+                    width={16}
+                    height={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 brightness-150"
+                  />
+                  <Input
+                    id="pass"
+                    name="password"
+                    onChange={handleChange}
+                    className="border border-gray-600 rounded-lg w-80 h-10  pl-10 pr-10 bg-gray-800 pt-3 text-white"
+                    type="password"
+                    placeholder="**********"
+                    required
+                  />
+                </div>
+              </div>
+              <FieldGroup className="mt-3">
+                <Field
+                  orientation="horizontal"
+                  className="items-center gap-2 mt-2"
                 >
-                    {t("register")}
-                </button>
+                  <Checkbox
+                    onClick={() => setCheck((prev) => !prev)}
+                    className="rounded-full bg-gray-800"
+                  />
+                  <FieldLabel className="items-center gap-1 whitespace-nowrap text-xs text-gray-500">
+                    I agree to the{" "}
+                    <a
+                      className="text-purple-900"
+                      href="http://localhost:3000/terms-of-service"
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      className="text-purple-900"
+                      href="http://localhost:3000/privacy-policy"
+                    >
+                      Privacy Policy
+                    </a>
+                  </FieldLabel>
+                </Field>
+              </FieldGroup>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="hover:bg-purple-700  bg-purple-600 w-80 h-12 mt-4 text-lg"
+                size="lg"
+              >
+                {loading ? "Creating..." : "Create Account"}
+                <Image
+                  className="ml-1.5"
+                  src="/arrow.png"
+                  alt="arrow icon"
+                  width={30}
+                  height={30}
+                />
+              </Button>
             </form>
-            <p className="mt-4 text-center text-sm text-gray-500">
-                Already have an account?{" "}
-                <Link href="/login" className="text-primary-600 hover:underline">
-                    {t("login")}
-                </Link>
-            </p>
-        </>
-    );
-}
+
+            <div className="flex items-center gap-2 mt-3">
+              <div className=" w-20 border-t border-gray-800 my-4"></div>
+              <p className="text-gray-400 font-bold text-xs">
+                OR CONTINUE WITH
+              </p>
+              <div className=" w-20 border-t border-gray-800 my-4"></div>
+            </div>
+            <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
+              <Button
+                onClick={() =>
+                  (window.location.href = "http://localhost:8000/auth/google")
+                }
+                className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+              >
+                Google
+              </Button>
+              <Button className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800">
+                Discord
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+};
+
+export default SignUpPage;

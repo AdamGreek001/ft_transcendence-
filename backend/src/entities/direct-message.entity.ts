@@ -8,6 +8,7 @@ import {
     Index,
 } from "typeorm";
 import { User } from "./user.entity";
+import { Conversation } from "./conversation.entity";
 
 @Entity("direct_messages")
 export class DirectMessage {
@@ -25,8 +26,15 @@ export class DirectMessage {
     @Index()
     receiverId: string;
 
+    @Column({ type: "uuid", name: "conversation_id", nullable: true })
+    @Index()
+    conversationId: string | null;
+
     @Column({ type: "boolean", default: false })
     read: boolean;
+
+    @Column({ type: "timestamp", nullable: true, name: "read_at" })
+    readAt: Date | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
@@ -38,4 +46,8 @@ export class DirectMessage {
     @ManyToOne(() => User, (user) => user.receivedMessages, { onDelete: "CASCADE" })
     @JoinColumn({ name: "receiver_id" })
     receiver: User;
+
+    @ManyToOne(() => Conversation, (conv) => conv.messages, { onDelete: "CASCADE" })
+    @JoinColumn({ name: "conversation_id" })
+    conversation: Conversation;
 }

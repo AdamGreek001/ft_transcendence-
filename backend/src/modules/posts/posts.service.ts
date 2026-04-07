@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Inject, forwardRef } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { Post } from "../../entities/post.entity";
 import { Like } from "../../entities/like.entity";
 import { Follow } from "../../entities/follow.entity";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class PostsService {
@@ -11,6 +12,8 @@ export class PostsService {
         @InjectRepository(Post) private readonly postRepo: Repository<Post>,
         @InjectRepository(Like) private readonly likeRepo: Repository<Like>,
         @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
+        @Inject(forwardRef(() => NotificationsService))
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     async create(authorId: string, content: string, imageUrl?: string) {
@@ -64,6 +67,13 @@ export class PostsService {
 
         const like = this.likeRepo.create({ userId, postId });
         await this.likeRepo.save(like);
+
+        // Send notification to post author
+        const post = await this.postRepo.findOne({ where: { id: postId } });
+        if (post && post.authorId !== userId) {
+            await this.notificationsService.notifyLike(post.authorId, userId, postId);
+        }
+
         return { liked: true };
     }
 }
