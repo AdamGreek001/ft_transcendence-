@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { FileUploadModal } from "@/components/chat/FileUploadModal";
+import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatSocket } from "@/hooks/useChatSocket";
@@ -55,6 +57,8 @@ export default function MessagesPage() {
     const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
     
@@ -332,6 +336,88 @@ export default function MessagesPage() {
         }
     };
 
+    // Handle file uploads
+    const handleFileUpload = async (files: File[]) => {
+        if (!selectedConversationId) return;
+
+        const selectedConv = conversations.find(c => c.id === selectedConversationId);
+        const receiverId = (selectedConv as ChatConversation & { otherUserId?: string })?.otherUserId;
+        
+        if (!receiverId) return;
+
+        setIsUploading(true);
+
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const response = await apiClient.post<{ url: string }>(
+                    "/chat/upload",
+                    formData
+                );
+
+                // Send message with file URL
+                const fileMessage = `📎 ${file.name}: ${response.url}`;
+                
+                // Optimistically add message
+                const tempMessage: Message = {
+                    id: `temp-${Date.now()}`,
+                    content: fileMessage,
+                    senderId: user?.id || "",
+                    conversationId: selectedConversationId,
+                    isMine: true,
+                    createdAt: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, tempMessage]);
+
+                try {
+                    // Send via WebSocket for real-time delivery
+                    if (isConnected) {
+                        const result = await sendWsMessage(receiverId, fileMessage);
+                        if (result.success && result.message) {
+                            // Update with real message from server
+                            setMessages(prev => prev.map(msg => 
+                                msg.id === tempMessage.id 
+                                    ? { ...msg, id: result.message!.id }
+                                    : msg
+                            ));
+                        }
+                    } else {
+                        // Fallback to REST API
+                        const msgResponse = await apiClient.post<{ id: string }>(
+                            "/chat/messages",
+                            { receiverId, content: fileMessage }
+                        );
+                        setMessages(prev => prev.map(msg => 
+                            msg.id === tempMessage.id 
+                                ? { ...msg, id: msgResponse.id }
+                                : msg
+                        ));
+                    }
+                } catch (error) {
+                    console.error("Failed to send file message:", error);
+                }
+            }
+
+            // Update conversation last message
+            setConversations(prev => prev.map(conv =>
+                conv.id === selectedConversationId
+                    ? { ...conv, lastMessage: "📎 File shared", lastMessageAt: new Date().toISOString() }
+                    : conv
+            ));
+        } catch (error) {
+            console.error("Failed to upload files:", error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Handle emoji selection
+    const handleEmojiSelect = (emoji: string) => {
+        setInput(prev => prev + emoji);
+    };
+
     // Handle conversation selection
     const handleSelectConversation = async (convId: string) => {
         setSelectedConversationId(convId);
@@ -402,6 +488,104 @@ export default function MessagesPage() {
         } else {
             return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         }
+    };
+
+    // Check if message content is a file URL
+    const isFileMessage = (content: string): boolean => {
+        return content.includes("📎") && content.includes("/uploads/");
+    };
+
+    // Check if it's an image file
+    const isImageMessage = (content: string): boolean => {
+        const imageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
+        return imageExtensions.some(ext => content.toLowerCase().includes(ext)) && content.includes("/uploads/");
+    };
+
+    // Extract URL from message format "📎 filename: /path/to/file"
+    const extractFileUrl = (content: string): string | null => {
+        const urlMatch = content.match(/:\s*(\/uploads\/\S+)/);
+        if (urlMatch && urlMatch[1]) {
+            return urlMatch[1];
+        }
+        return null;
+    };
+
+    // Get full media URL
+    const getFullMediaUrl = (relativePath: string): string => {
+        const mediaBaseUrl = process.env.NEXT_PUBLIC_MEDIA_URL || "http://localhost:3001/uploads";
+        // If path starts with /uploads/, replace it with the full base URL
+        if (relativePath.startsWith("/uploads/")) {
+            return relativePath.replace("/uploads/", mediaBaseUrl.replace(/\/+$/, "") + "/");
+        }
+        // Otherwise append the path to base URL
+        return `${mediaBaseUrl.replace(/\/+$/, "")}/${relativePath.replace(/^\/+/, "")}`;
+    };
+
+    // Extract filename from message content
+    const extractFileName = (content: string): string => {
+        const match = content.match(/📎\s*([^:]+):/);
+        return match ? match[1].trim() : "File";
+    };
+
+    // Render message content (text, image, or file)
+    const renderMessageContent = (content: string) => {
+        if (isImageMessage(content)) {
+            const fileUrl = extractFileUrl(content);
+            if (fileUrl) {
+                const fullUrl = getFullMediaUrl(fileUrl);
+                const fileName = extractFileName(content);
+                return (
+                    <img
+                        src={fullUrl}
+                        alt={fileName}
+                        className="max-w-xs max-h-96 rounded-lg object-cover cursor-pointer hover:opacity-90 transition"
+                        loading="lazy"
+                        onClick={() => window.open(fullUrl, "_blank")}
+                        onError={(e) => {
+                            // Fallback to link if image fails to load
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                                const link = document.createElement("a");
+                                link.href = fullUrl;
+                                link.target = "_blank";
+                                link.rel = "noopener noreferrer";
+                                link.textContent = `📎 ${fileName}`;
+                                link.className = "text-blue-400 hover:text-blue-300 underline text-sm";
+                                parent.innerHTML = "";
+                                parent.appendChild(link);
+                            }
+                        }}
+                    />
+                );
+            }
+        } else if (isFileMessage(content)) {
+            // Handle non-image files
+            const fileUrl = extractFileUrl(content);
+            if (fileUrl) {
+                const fullUrl = getFullMediaUrl(fileUrl);
+                const fileName = extractFileName(content);
+                return (
+                    <a
+                        href={fullUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-3 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition"
+                    >
+                        <svg className="w-5 h-5 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{fileName}</p>
+                            <p className="text-xs text-gray-400">Click to download</p>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </a>
+                );
+            }
+        }
+        return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{content}</p>;
     };
 
     const messageGroups = groupMessagesByDate(messages);
@@ -555,13 +739,17 @@ export default function MessagesPage() {
                                                 )}
                                                 <div>
                                                     <div
-                                                        className={`px-4 py-2.5 rounded-2xl ${
-                                                            msg.isMine
-                                                                ? "bg-violet-600 text-white rounded-br-md"
-                                                                : "bg-[#1a1a1f] text-gray-200 rounded-bl-md"
+                                                        className={`rounded-2xl ${
+                                                            isFileMessage(msg.content)
+                                                                ? "p-0 bg-transparent"
+                                                                : `px-4 py-2.5 ${
+                                                                    msg.isMine
+                                                                        ? "bg-violet-600 text-white rounded-br-md"
+                                                                        : "bg-[#1a1a1f] text-gray-200 rounded-bl-md"
+                                                                  }`
                                                         }`}
                                                     >
-                                                        <p className="text-sm leading-relaxed">{msg.content}</p>
+                                                        {renderMessageContent(msg.content)}
                                                     </div>
                                                     <p className={`text-xs text-gray-500 mt-1 ${msg.isMine ? "text-right" : ""}`}>
                                                         {formatTime(msg.createdAt)}
@@ -587,7 +775,12 @@ export default function MessagesPage() {
                                 </div>
                             )}
                             <form onSubmit={handleSendMessage} className="flex items-center gap-3">
-                                <button type="button" className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800/50 rounded-full transition">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsUploadModalOpen(true)}
+                                    className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800/50 rounded-full transition"
+                                    title="Upload file"
+                                >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                     </svg>
@@ -599,14 +792,11 @@ export default function MessagesPage() {
                                     placeholder="Type a message..."
                                     className="flex-1 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                                 />
-                                <button type="button" className="p-2 text-gray-400 hover:text-gray-300 hover:bg-gray-800/50 rounded-full transition">
-                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm3.5-9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm3.5 6c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
-                                    </svg>
-                                </button>
+                                <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                                 <button
                                     type="submit"
-                                    className="p-3 bg-violet-600 text-white rounded-full hover:bg-violet-700 transition"
+                                    className="p-3 bg-violet-600 text-white rounded-full hover:bg-violet-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={isSending}
                                 >
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
@@ -621,6 +811,14 @@ export default function MessagesPage() {
                     </div>
                 )}
             </div>
+
+            {/* File Upload Modal */}
+            <FileUploadModal 
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onUpload={handleFileUpload}
+                isLoading={isUploading}
+            />
         </div>
     );
 }

@@ -149,7 +149,7 @@ function NotificationIcon({ type }: { type: NotificationType }) {
 export default function NotificationsPage() {
     const { isAuthenticated, isHydrated, user } = useAuth();
     const token = useAuthStore((s) => s.accessToken);
-    const [activeTab, setActiveTab] = useState<"all" | "mentions" | "verified">("all");
+    const [activeTab, setActiveTab] = useState<"all" | "unread" | "read">("all");
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const socketRef = useRef<Socket | null>(null);
@@ -215,31 +215,45 @@ export default function NotificationsPage() {
 
     const markAsRead = async (id: string) => {
         try {
-            await apiClient.patch(`/notifications/${id}/read`);
+            // Update local state optimistically
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
             markStoreAsRead(id);
+            
+            // Call API to persist to database
+            await apiClient.patch(`/notifications/${id}/read`);
         } catch (error) {
             console.error("Failed to mark notification as read:", error);
+            // Revert on error
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
         }
     };
 
     const markAllAsRead = async () => {
         try {
-            await apiClient.patch("/notifications/read-all");
+            // Store original state for rollback
+            const originalNotifications = notifications;
+            
+            // Update local state optimistically
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
             markStoreAllAsRead();
+            
+            // Call API to persist to database
+            await apiClient.patch("/notifications/read-all");
         } catch (error) {
             console.error("Failed to mark all as read:", error);
+            // Revert by refetching
+            const data = await apiClient.get<NotificationsResponse>("/notifications");
+            setNotifications((data.notifications || []).map(mapBackendNotification));
         }
     };
 
     // Filter notifications by active tab
     const filteredNotifications = notifications.filter(notif => {
-        if (activeTab === "mentions") {
-            return notif.type === "mention";
+        if (activeTab === "read") {
+            return notif.read;
         }
-        if (activeTab === "verified") {
-            return notif.isVerified;
+        if (activeTab === "unread") {
+            return !notif.read;
         }
         return true;
     });
@@ -273,28 +287,43 @@ export default function NotificationsPage() {
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex border-b border-gray-800/50">
-                    {[
-                        { id: "all", label: "All" },
-                        { id: "mentions", label: "Mentions" },
-                        { id: "verified", label: "Verified" },
-                    ].map((tab) => (
+                {/* Tabs and Actions */}
+                <div className="border-b border-gray-800/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-1 overflow-x-auto">
+                            {[
+                                { id: "all", label: "All" },
+                                { id: "unread", label: "Unread" },
+                                { id: "read", label: "Read" },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                                    className={`px-4 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${
+                                        activeTab === tab.id
+                                            ? "text-white"
+                                            : "text-gray-500 hover:text-gray-300"
+                                    }`}
+                                >
+                                    {tab.label}
+                                    {activeTab === tab.id && (
+                                        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-violet-500 rounded-full" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
                         <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                            className={`flex-1 px-4 py-4 text-sm font-medium transition-colors relative ${
-                                activeTab === tab.id
-                                    ? "text-white"
-                                    : "text-gray-500 hover:text-gray-300"
+                            onClick={markAllAsRead}
+                            disabled={!notifications.some(n => !n.read)}
+                            className={`px-4 py-2 text-sm transition border-l border-gray-800/50 ${
+                                notifications.some(n => !n.read)
+                                    ? "text-violet-400 hover:text-violet-300 cursor-pointer"
+                                    : "text-gray-600 cursor-not-allowed opacity-50"
                             }`}
                         >
-                            {tab.label}
-                            {activeTab === tab.id && (
-                                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-violet-500 rounded-full" />
-                            )}
+                            Mark All as Read
                         </button>
-                    ))}
+                    </div>
                 </div>
 
                 {/* Notifications List */}
@@ -307,10 +336,9 @@ export default function NotificationsPage() {
                         filteredNotifications.map((notification) => (
                             <div 
                                 key={notification.id} 
-                                className={`p-4 hover:bg-gray-800/20 transition cursor-pointer ${!notification.read ? 'bg-violet-500/5' : ''}`}
-                                onClick={() => !notification.read && markAsRead(notification.id)}
+                                className={`p-4 hover:bg-gray-800/20 transition ${!notification.read ? 'bg-violet-500/5' : 'opacity-60'}`}
                             >
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 items-start">
                                     <NotificationIcon type={notification.type} />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
@@ -325,15 +353,23 @@ export default function NotificationsPage() {
                                                 {notification.users[0]?.name}
                                             </span>
                                             <span className="text-gray-500 text-sm">{notification.content}</span>
-                                            <span className="text-gray-600 text-xs">{notification.time}</span>
+                                            <span className="text-gray-600 text-xs ml-auto">{notification.time}</span>
                                             {!notification.read && (
-                                                <span className="w-2 h-2 bg-violet-500 rounded-full" />
+                                                <span className="w-2 h-2 bg-violet-500 rounded-full flex-shrink-0" />
                                             )}
                                         </div>
                                         {notification.quotedContent && (
                                             <p className="text-gray-400 text-sm mt-1">{notification.quotedContent}</p>
                                         )}
                                     </div>
+                                    {!notification.read && (
+                                        <button
+                                            onClick={() => markAsRead(notification.id)}
+                                            className="ml-2 px-3 py-1 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded transition flex-shrink-0"
+                                        >
+                                            Mark as read
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))
