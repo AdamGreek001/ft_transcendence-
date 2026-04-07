@@ -9,8 +9,11 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
+import { Inject, forwardRef } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { UsersService } from "../users/users.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { NotificationsGateway } from "../notifications/notifications.gateway";
 
 interface OnlineUser {
     odId: string;
@@ -32,6 +35,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         private readonly chatService: ChatService,
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
+        @Inject(forwardRef(() => NotificationsService))
+        private readonly notificationsService: NotificationsService,
+        @Inject(forwardRef(() => NotificationsGateway))
+        private readonly notificationsGateway: NotificationsGateway,
     ) {}
 
     private getUserIdFromSocket(client: Socket): string | null {
@@ -112,6 +119,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             
             // Also emit back to sender (for other tabs/devices)
             this.server.to(`user:${senderId}`).emit("chat:message", message);
+            
+            // Create notification for new message
+            const sender = await this.usersService.findById(senderId);
+            if (sender) {
+                await this.notificationsService.create(
+                    data.receiverId,
+                    senderId,
+                    "message",
+                    `New message from ${sender.displayName || sender.username}`,
+                );
+            }
+            
+            // Send updated messages unread count to receiver
+            const msgUnreadCount = await this.chatService.getUnreadCount(data.receiverId);
+            this.notificationsGateway.sendMessagesUnreadCount(data.receiverId, msgUnreadCount);
             
             // Confirm to sender
             return { success: true, message };

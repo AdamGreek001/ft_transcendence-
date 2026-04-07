@@ -64,4 +64,9 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     sendUnreadCount(userId: string, count: number) {
         this.server.to(`user:${userId}`).emit("notification:count", { count });
     }
+    
+    // Broadcast messages unread count update
+    sendMessagesUnreadCount(userId: string, count: number) {
+        this.server.to(`user:${userId}`).emit("messages:count", { count });                 
+    }
 }

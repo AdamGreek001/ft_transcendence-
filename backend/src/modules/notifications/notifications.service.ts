@@ -78,13 +78,13 @@ export class NotificationsService {
         const notif = await this.notifRepo.findOne({ where: { id, recipientId: userId } });
         if (!notif) return null;
 
-        await this.notifRepo.update(id, { read: true });
+        await this.notifRepo.update({ id, recipientId: userId }, { read: true });
         
         // Update unread count
         const count = await this.getUnreadCount(userId);
         this.gateway.sendUnreadCount(userId, count);
 
-        return this.notifRepo.findOne({ where: { id } });
+        return this.notifRepo.findOne({ where: { id, recipientId: userId } });
     }
 
     async markAllAsRead(userId: string) {

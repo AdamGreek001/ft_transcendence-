@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Avatar } from "@/components/ui";
 import { useNotificationsStore } from "@/store/notifications";
+import { useMessagesStore } from "@/store/messages";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
 import { apiClient } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -113,23 +114,30 @@ export function AppSidebar({
 }: AppSidebarProps) {
     const pathname = usePathname();
     const { unreadCount, setUnreadCount } = useNotificationsStore();
+    const { unreadCount: messagesUnreadCount, setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
     const accessToken = useAuthStore((s) => s.accessToken);
     
     // Initialize notification WebSocket connection
     useNotificationSocket();
 
-    // Fetch initial unread count
+    // Fetch initial unread counts
     useEffect(() => {
         if (!accessToken) return;
         
+        // Fetch notification unread count
         apiClient.get<{ count: number }>("/notifications/unread-count")
             .then((data) => setUnreadCount(data.count))
             .catch((err) => console.error("Failed to fetch unread count:", err));
-    }, [accessToken, setUnreadCount]);
+        
+        // Fetch messages unread count
+        apiClient.get<{ count: number }>("/chat/unread-count")
+            .then((data) => setMessagesUnreadCount(data.count))
+            .catch((err) => console.error("Failed to fetch messages unread count:", err));
+    }, [accessToken, setUnreadCount, setMessagesUnreadCount]);
 
     const getBadgeCount = (badgeKey?: "notifications" | "messages") => {
         if (badgeKey === "notifications") return unreadCount;
-        // TODO: Add messages unread count from a messages store
+        if (badgeKey === "messages") return messagesUnreadCount;
         return 0;
     };
 

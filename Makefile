@@ -40,6 +40,10 @@ clean:
 ps:
 	$(COMPOSE) ps
 
+## seed      — run database seeders to create test users and friendships
+seed:
+	@docker exec -it ft_backend node dist/scripts/seed.js
+
 ## help      — show available targets
 help:
 	@grep -E '^## ' Makefile | sed 's/^## //'
