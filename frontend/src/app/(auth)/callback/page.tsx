@@ -1,36 +1,42 @@
 "use client";
 
-import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { api } from "@/lib/utils";
+import Cookies from "js-cookie";
 
 export default function OAuthCallbackPage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const called = useRef(false);
 
     useEffect(() => {
         const code = searchParams.get("code");
-        if (code) {
-            // Exchange Google authorization code with the backend
-            fetch("/api/auth/google/callback", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code }),
-            })
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.accessToken) {
-                        localStorage.setItem("accessToken", data.accessToken);
-                        window.location.href = "/feed";
+        
+        if (code && !called.current) {
+            called.current = true;
+
+            api.post("/auth/google/callback", { code })
+                .then((res) => {
+                    const { accessToken } = res.data;
+                    if (accessToken) {
+                        Cookies.set("token", accessToken, { expires: 7, path: "/" });
+                        router.push("/feed");
                     }
                 })
-                .catch(() => {
-                    window.location.href = "/login";
+                .catch((err) => {
+                    console.error("Google Auth Error:", err);
+                    router.push("/login?error=oauth_failed");
                 });
         }
-    }, [searchParams]);
+    }, [searchParams, router]);
 
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <p className="text-lg text-gray-600">Authenticating…</p>
+        <div className="flex min-h-screen items-center justify-center bg-gray-900">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4 mx-auto"></div>
+                <p className="text-lg text-gray-400">Finalizing your login…</p>
+            </div>
         </div>
     );
 }

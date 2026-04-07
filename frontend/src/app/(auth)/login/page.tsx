@@ -128,7 +128,7 @@ const LoginPage = () => {
             <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
               <Button
                 onClick={() =>
-                  (window.location.href = "http://localhost:8000/auth/google")
+                  (window.location.href = "http://localhost:3001/api/auth/google")
                 }
                 className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
