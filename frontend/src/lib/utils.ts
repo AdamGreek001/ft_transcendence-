@@ -1,41 +1,16 @@
 import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import axios from "axios";
 
 /**
- * Merge class names conditionally.
+ * cn (Class Names) function:
+ * 1. clsx: handles conditional classes (true/false/null).
+ * 2. twMerge: fixes Tailwind CSS conflicts (e.g., 'px-2 px-4' becomes 'px-4').
  */
-export function cn(...inputs: ClassValue[]): string {
-    return clsx(inputs);
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
-/**
- * Format a date for display.
- */
-export function formatDate(date: string | Date): string {
-    return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    }).format(new Date(date));
-}
-
-/**
- * Truncate a string to a maximum length.
- */
-export function truncate(str: string, max: number): string {
-    if (str.length <= max) return str;
-    return str.slice(0, max).trimEnd() + "…";
-}
-
-/**
- * Debounce a function call.
- */
-export function debounce<T extends (...args: Parameters<T>) => void>(
-    fn: T,
-    delay: number,
-): (...args: Parameters<T>) => void {
-    let timer: ReturnType<typeof setTimeout>;
-    return (...args: Parameters<T>) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), delay);
-    };
-}
+export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api",
+});

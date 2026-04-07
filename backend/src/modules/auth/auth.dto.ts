@@ -6,31 +6,31 @@ export class RegisterDto {
     @IsString()
     @MinLength(3)
     @MaxLength(30)
-    username: string;
+    username!: string;
 
     @ApiProperty({ example: "john@example.com" })
     @IsEmail()
-    email: string;
+    email!: string;
 
     @ApiProperty({ example: "securepassword" })
     @IsString()
     @MinLength(8)
     @MaxLength(128)
-    password: string;
+    password!: string;
 }
 
 export class LoginDto {
     @ApiProperty({ example: "john@example.com" })
     @IsEmail()
-    email: string;
+    email!: string;
 
     @ApiProperty({ example: "securepassword" })
     @IsString()
-    password: string;
+    password!: string;
 }
 
 export class GoogleOAuthDto {
     @ApiProperty({ description: "Authorization code from Google OAuth" })
     @IsString()
-    code: string;
+    code!: string;
 }
