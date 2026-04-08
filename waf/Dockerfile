@@ -11,11 +11,11 @@ RUN chmod +x /docker-entrypoint.d/01-create-cert.sh && \
     mkdir -p /etc/nginx/certs && \
     rm -rf /var/cache/apk/*
 
-# Disable paranoia level and CRS overrides to allow more traffic
-ENV PARANOIA=1
-ENV ANOMALY_INBOUND=5
+# Strict paranoia level and anomaly thresholds
+ENV PARANOIA=2
+ENV ANOMALY_INBOUND=4
 ENV ANOMALY_OUTBOUND=4
-ENV ALLOWED_METHODS="GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE"
+ENV ALLOWED_METHODS="GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS"
 
 # Copy ModSecurity configuration override
 COPY modsecurity.conf /etc/modsecurity.d/modsecurity-custom.conf
