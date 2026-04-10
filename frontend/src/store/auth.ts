@@ -16,14 +16,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     isHydrated: false,
 
     setAuth: (accessToken, user) => {
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("user", JSON.stringify(user));
         set({ accessToken, user });
     },
 
     clearAuth: () => {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
         set({ accessToken: null, user: null });
     },
 
