@@ -15,12 +15,15 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/utils";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/auth";
 
 const LoginPage = () => {
+  const setAuth = useAuthStore((state) => state.setAuth);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +32,14 @@ const LoginPage = () => {
     try {
       const res = await api.post("/auth/login", { email, password });
       const token = res.data.accessToken;
+      const userData = res.data.user;
 
       if (token) {
         Cookies.set("token", token, { expires: 7, path: "/" });
 
-        router.push("/feed");
+        setAuth(token, userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        router.push("/settings");
       }
       else {
         console.error("Token not found in response:", res.data);

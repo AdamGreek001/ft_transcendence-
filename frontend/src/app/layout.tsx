@@ -29,7 +29,7 @@ export default async function RootLayout({
                     rel="stylesheet"
                 />
             </head>
-            <body>
+            <body suppressHydrationWarning={true}>
                 <NextIntlClientProvider locale={locale} messages={messages}>
                     {children}
                 </NextIntlClientProvider>

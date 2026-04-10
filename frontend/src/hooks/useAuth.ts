@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
+import Cookies from "js-cookie";
 
 export function useAuth() {
     const { accessToken, user, setAuth, clearAuth, isHydrated, setHydrated } =
@@ -9,7 +10,7 @@ export function useAuth() {
 
     useEffect(() => {
         if (!isHydrated) {
-            const storedToken = localStorage.getItem("accessToken");
+            const storedToken = Cookies.get("token");
             const storedUser = localStorage.getItem("user");
             if (storedToken && storedUser) {
                 try {
@@ -23,7 +24,7 @@ export function useAuth() {
     }, [isHydrated, setAuth, clearAuth, setHydrated]);
 
     const logout = () => {
-        localStorage.removeItem("accessToken");
+        Cookies.remove("token", { path: "/" });
         localStorage.removeItem("user");
         clearAuth();
         window.location.href = "/login";

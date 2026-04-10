@@ -151,9 +151,9 @@ make up
 │ username VARCHAR │   │   │ content  VARCHAR │
 │ email    VARCHAR │   ├───│ author_id   UUID │
 │ password_hash    │   │   │ image_url        │
-│ display_name     │   │   │ created_at       │
+│ displayName     │   │   │ created_at       │
 │ bio              │   │   └────────┬─────────┘
-│ avatar_url       │   │            │
+│ avatarUrl       │   │            │
 │ oauth_provider   │   │   ┌────────▼─────────┐
 │ two_factor_*     │   │   │    comments      │
 │ is_online        │   │   ├──────────────────┤

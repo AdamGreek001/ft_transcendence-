@@ -30,13 +30,13 @@ export class User {
     @Column({ type: "varchar", nullable: true, name: "password_hash" })
     passwordHash!: string | null;
 
-    @Column({ type: "varchar", length: 50, nullable: true, name: "display_name" })
+    @Column({ type: "varchar", length: 50, nullable: true, name: "displayName" })
     displayName!: string | null;
 
     @Column({ type: "varchar", length: 500, nullable: true })
     bio!: string | null;
 
-    @Column({ type: "varchar", nullable: true, name: "avatar_url" })
+    @Column({ type: "varchar", nullable: true, name: "avatarUrl" })
     avatarUrl!: string | null;
 
     @Exclude()

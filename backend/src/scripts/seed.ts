@@ -80,7 +80,7 @@ async function seed() {
         const passwordHash = await bcrypt.hash(userData.password, 12);
 
         await dataSource.query(
-            `INSERT INTO users (username, email, password_hash, display_name, bio, is_online, two_factor_enabled)
+            `INSERT INTO users (username, email, password_hash, displayName, bio, is_online, two_factor_enabled)
              VALUES ($1, $2, $3, $4, $5, false, false)`,
             [userData.username, userData.email, passwordHash, userData.displayName, userData.bio]
         );
@@ -88,7 +88,7 @@ async function seed() {
         console.log(`✅ Created user: ${userData.username}`);
     }
 
-    console.log("\n🎉 Seed completed!\n");
+    console.log("\n Seed completed!\n");
     console.log("Test accounts created:");
     console.log("─".repeat(50));
     console.log("| Email              | Username  | Password  |");
