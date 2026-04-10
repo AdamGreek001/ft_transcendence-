@@ -9,12 +9,16 @@ import { User } from "../../entities/user.entity";
 import { Block } from "../../entities/block.entity";
 import { UsersModule } from "../users/users.module";
 import { AuthModule } from "../auth/auth.module";
+import { NotificationsModule } from "../notifications/notifications.module";
+import { MediaModule } from "../media/media.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([DirectMessage, Conversation, User, Block]),
         forwardRef(() => UsersModule),
+        forwardRef(() => NotificationsModule),
         AuthModule,
+        MediaModule,
     ],
     controllers: [ChatController],
     providers: [ChatGateway, ChatService],
