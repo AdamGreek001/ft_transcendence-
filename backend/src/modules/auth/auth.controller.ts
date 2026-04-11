@@ -45,10 +45,4 @@ export class AuthController {
     return this.authService.googleOAuth(dto.code);
   }
 
-  // @Post("2fa/verify")
-  // @HttpCode(HttpStatus.OK)
-  // @ApiOperation({ summary: "Verify 2FA TOTP code" })
-  // async verify2fa(@Body() body: { userId: string; code: string }) {
-  //   return this.authService.verify2fa(body.userId, body.code);
-  // }
 }

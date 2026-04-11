@@ -2,15 +2,17 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
-import { authenticator } from "otplib";
 import { User } from "../../entities/user.entity";
 import { LoginDto, RegisterDto } from "./auth.dto";
+import { authenticator } from "otplib";
 import * as qrcode from "qrcode";
 
 @Injectable()
@@ -126,39 +128,59 @@ export class AuthService {
     };
   }
 
-  // async generate2faSecret(user: User) {
-  //   const secret = authenticator.generateSecret();
-  //   const optauthUrl = authenticator.keyuri(
-  //     user.email,
-  //     "FT_Transcendence",
-  //     secret,
-  //   );
-  //   await this.userRepo.update(user.id, { twoFactorSecret: secret });
-  //   return qrcode.toDataURL(optauthUrl);
-  // }
+  async generateTwoFactorAuthenticationSecret(user: any) {
+    console.log("🟢 JWT User Payload:", user);
 
-  // async verify2fa(userId: string, code: string) {
-  //   const user = await this.userRepo.findOne({ where: { id: userId } });
-  //   if (!user || !user.twoFactorSecret) {
-  //     throw new UnauthorizedException("2FA not configured");
-  //   }
+    const userId = user?.id || user?.sub || user?.userId;
+    const accountName = user?.email || user?.username || "StitchSocial_User";
+    if (!userId) {
+      throw new BadRequestException(
+        "User ID is missing from the token payload!",
+      );
+    }
 
-  //   const valid = authenticator.verify({
-  //     token: code,
-  //     secret: user.twoFactorSecret,
-  //   });
-  //   if (!valid) {
-  //     throw new UnauthorizedException("Invalid 2FA code");
-  //   }
+    try {
+      const secret = authenticator.generateSecret();
+      const otpauthUrl = authenticator.keyuri(
+        accountName,
+        "StitchSocial",
+        secret,
+      );
+      await this.userRepo.update(userId, { twoFactorSecret: secret });
 
-  //   if (!user.twoFactorEnabled) {
-  //       await this.userRepo.update(user.id, { twoFactorEnabled: true });
-  //   }
-    
-  //   const token = this.jwt.sign({ sub: user.id, username: user.username });
-  //   return {
-  //     accessToken: token,
-  //     user: { id: user.id, username: user.username, email: user.email },
-  //   };
-  // }
+      const qrCodeDataUrl = await qrcode.toDataURL(otpauthUrl);
+      return { qrCodeDataUrl };
+    } catch (error) {
+      console.error("🔴 Error f DB wla QR Generation:", error);
+      throw new InternalServerErrorException("Failed to generate 2FA QR code");
+    }
+  }
+
+  async turnOnTwoFactorAuthentication(userId: string, authCode: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+
+    if (!user || !user.twoFactorSecret) {
+      throw new BadRequestException("2FA secret not initialized");
+    }
+
+    const isCodeValid = authenticator.verify({
+      token: authCode,
+      secret: user.twoFactorSecret,
+    });
+
+    if (!isCodeValid) {
+      throw new BadRequestException("Wrong authentication code");
+    }
+
+    await this.userRepo.update(userId, { twoFactorEnabled: true });
+    return { success: true };
+  }
+
+  async turnOffTwoFactorAuthentication(userId: string) {
+    await this.userRepo.update(userId, {
+      twoFactorSecret: null,
+      twoFactorEnabled: false,
+    });
+    return { success: true };
+  }
 }
