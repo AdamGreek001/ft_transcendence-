@@ -5,16 +5,11 @@ import { AxiosRequestConfig } from "axios";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost/api";
 
 const instance = axios.create({
-<<<<<<< HEAD
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
-=======
-    baseURL: API_BASE_URL,
-    timeout: 10000,
->>>>>>> origin
 });
 
 // Attach JWT token to every request and handle FormData
@@ -24,18 +19,12 @@ instance.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-<<<<<<< HEAD
   }
-  return config;
-=======
-    
-    // Only set Content-Type for non-FormData requests
+  // Only set Content-Type for non-FormData requests
     if (!(config.data instanceof FormData)) {
         config.headers["Content-Type"] = "application/json";
     }
-    
-    return config;
->>>>>>> origin
+  return config;
 });
 
 // Handle 401 by redirecting to login
