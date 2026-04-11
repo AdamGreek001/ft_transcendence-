@@ -7,12 +7,28 @@ import { AppModule } from "./app.module";
 import { join } from "path";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import * as express from "express";
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const config = app.get(ConfigService);
+import * as fs from "fs";
 
-  // Global prefix
-  app.setGlobalPrefix("api");
+async function bootstrap() {
+
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    const config = app.get(ConfigService);
+
+    // Serve static files from uploads directory
+    const isDocker = fs.existsSync("/app") && process.cwd().startsWith("/app");
+    const uploadDir = isDocker ? "/app/uploads" : join(process.cwd(), "uploads");
+    
+    // Ensure uploads directory exists
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    app.useStaticAssets(uploadDir, {
+        prefix: "/uploads/",
+    });
+
+    // Global prefix
+    app.setGlobalPrefix("api");
 
   // CORS
   app.enableCors({
