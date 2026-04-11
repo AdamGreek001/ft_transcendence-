@@ -21,7 +21,7 @@ export class MediaService {
     }
 
     private ensureDirectories() {
-        const dirs = ["avatars", "posts", "media"];
+        const dirs = ["avatars", "posts", "media", "chat"];
         for (const dir of dirs) {
             const fullPath = path.join(this.uploadDir, dir);
             if (!fs.existsSync(fullPath)) {

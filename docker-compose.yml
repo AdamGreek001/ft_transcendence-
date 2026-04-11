@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ─── WAF / ModSecurity ─────────────────────────────────────────
   waf:
@@ -31,6 +29,7 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: ft_nginx
+    # No external port - all traffic goes through WAF
     expose:
       - "80"
     depends_on:
@@ -49,8 +48,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: ft_frontend
-    expose:
-      - "3000"
+    ports:
+      - "3010:3000"
     networks:
       - app-network
     restart: unless-stopped
@@ -62,8 +61,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: ft_backend
-    expose:
-      - "${BACKEND_PORT:-3001}"
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,6 +94,7 @@ services:
       context: ./postgres
       dockerfile: Dockerfile
     container_name: ft_postgres
+    # No external port exposure for security - only internal access
     expose:
       - "5432"
     ports:
@@ -128,8 +128,8 @@ services:
     container_name: ft_vault
     cap_add:
       - IPC_LOCK
-    expose:
-      - "8200"
+    ports:
+      - "8200:8200"
     volumes:
       - vault_data:/vault/data
     networks:
@@ -143,8 +143,8 @@ services:
       context: ./monitoring/prometheus
       dockerfile: Dockerfile
     container_name: ft_prometheus
-    expose:
-      - "9090"
+    ports:
+      - "9090:9090"
     volumes:
       - prometheus_data:/prometheus
     networks:
@@ -157,8 +157,8 @@ services:
       context: ./monitoring/grafana
       dockerfile: Dockerfile
     container_name: ft_grafana
-    expose:
-      - "3000"
+    ports:
+      - "3100:3000"
     depends_on:
       - prometheus
     volumes:

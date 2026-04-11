@@ -12,7 +12,7 @@ const instance = axios.create({
   },
 });
 
-// Attach JWT token to every request
+// Attach JWT token to every request and handle FormData
 instance.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = Cookies.get("token");

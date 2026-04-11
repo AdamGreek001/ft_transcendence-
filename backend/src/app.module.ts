@@ -13,6 +13,7 @@ import {
   vaultConfig,
 } from "./config/configuration";
 import { HealthController } from "./common/health.controller";
+import { VaultModule } from "./modules/vault/vault.module";
 
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -38,6 +39,8 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
         vaultConfig,
       ],
     }),
+
+    VaultModule,
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
