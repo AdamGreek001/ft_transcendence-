@@ -20,11 +20,15 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { existsSync, mkdirSync } from "fs";
 import { extname } from "path";
+import { AuthService } from "../auth/auth.service";
 
 @ApiTags("Users")
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
@@ -78,7 +82,7 @@ export class UsersController {
         "File not found in the request. Check if the field name is 'file'",
       );
     }
-    const avatarUrl = `http://localhost:3001/uploads/avatars/${file.filename}`;
+    const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL}/avatars/${file.filename}`;
     await this.usersService.updateAvatar(
       req.user.sub || req.user.id,
       avatarUrl,
@@ -90,6 +94,29 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async removeAvatar(@Req() req: any) {
     return this.usersService.removeAvatar(req.user.sub || req.user.id);
+  }
+
+  @Post("2fa/generate")
+  @UseGuards(JwtAuthGuard)
+  async generate2FA(@Req() req: any) {
+    return this.authService.generateTwoFactorAuthenticationSecret(req.user);
+  }
+
+  @Post("2fa/turn-on")
+  @UseGuards(JwtAuthGuard)
+  async turnOn2FA(@Req() req: any, @Body("code") code: string) {
+    return this.authService.turnOnTwoFactorAuthentication(
+      req.user.sub || req.user.id,
+      code,
+    );
+  }
+
+  @Post("2fa/turn-off")
+  @UseGuards(JwtAuthGuard)
+  async turnOff2FA(@Req() req: any) {
+    return this.authService.turnOffTwoFactorAuthentication(
+      req.user.sub || req.user.id,
+    );
   }
 
   @Patch(":id")

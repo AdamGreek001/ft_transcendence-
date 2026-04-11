@@ -48,7 +48,7 @@ export class User {
     oauthId!: string | null;
 
     @Exclude()
-    @Column({ type: "varchar", nullable: true, name: "two_factor_secret" })
+    @Column({ type: "varchar", length: 255, nullable: true, name: "two_factor_secret" })
     twoFactorSecret!: string | null;
 
     @Column({ type: "boolean", default: false, name: "two_factor_enabled" })

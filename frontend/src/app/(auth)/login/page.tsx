@@ -24,7 +24,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -40,8 +39,7 @@ const LoginPage = () => {
         setAuth(token, userData);
         localStorage.setItem("user", JSON.stringify(userData));
         router.push("/settings");
-      }
-      else {
+      } else {
         console.error("Token not found in response:", res.data);
       }
     } catch (error: any) {
@@ -134,7 +132,7 @@ const LoginPage = () => {
             <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
               <Button
                 onClick={() =>
-                  (window.location.href = "http://localhost:3001/api/auth/google")
+                  (window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
                 }
                 className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
