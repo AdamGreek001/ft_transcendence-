@@ -131,15 +131,13 @@ const LoginPage = () => {
             </div>
             <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
               <Button
+                type="button"
                 onClick={() =>
                   (window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
                 }
-                className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+                className="w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
                 Google
-              </Button>
-              <Button className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800">
-                Discord
               </Button>
             </div>
           </CardContent>
@@ -156,9 +154,6 @@ const LoginPage = () => {
             href="http://localhost:3000/terms-of-service"
           >
             Terms of service
-          </a>
-          <a className="text-sm text-gray-400" href="#">
-            Support
           </a>
         </div>
       </main>

@@ -21,7 +21,7 @@ export default function OAuthCallbackPage() {
                     const { accessToken } = res.data;
                     if (accessToken) {
                         Cookies.set("token", accessToken, { expires: 7, path: "/" });
-                        router.push("/feed");
+                        router.push("/settings");
                     }
                 })
                 .catch((err) => {

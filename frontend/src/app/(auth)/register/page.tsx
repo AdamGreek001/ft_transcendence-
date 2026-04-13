@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Navbar from "@/components/auth/Navbar";
 import {
   Card,
+  CardAction,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -16,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { api } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const SignUpPage = () => {
   const router = useRouter();
@@ -62,19 +64,23 @@ const SignUpPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* <header className="bg-gray-800">
-        <Navbar buttonText="Log in" paragraph="Already have an account ?" />
-      </header> */}
-
       <main className="flex-1 grid place-items-center">
         <Card className="w-90 max-w-sm bg-gray-900 border-gray-800">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-white">
               Create Account
             </CardTitle>
-            <CardDescription className="text-gray-400 text-sm">
-              Join thousands of creators stitching together.
-            </CardDescription>
+            <CardAction className="flex items-center justify-center gap-24">
+              <CardDescription className="text-gray-400 text-sm">
+                already have an account?
+              </CardDescription>
+              <Link
+                href="/login"
+                className="text-gray-300 hover:text-white transition text-sm font-medium"
+              >
+                Log in
+              </Link>
+            </CardAction>
           </CardHeader>
 
           <CardContent>
@@ -201,15 +207,13 @@ const SignUpPage = () => {
             </div>
             <div className="flex items-center justify-center mt-2 mb-3 gap-6 w-full">
               <Button
+                type="button"
                 onClick={() =>
                   (window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
                 }
-                className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+                className="w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
                 Google
-              </Button>
-              <Button className="w-32 bg-gray-900 hover:bg-gray-800 border border-gray-800">
-                Discord
               </Button>
             </div>
           </CardContent>
