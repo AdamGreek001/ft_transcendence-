@@ -128,6 +128,37 @@ export class AuthService {
     };
   }
 
+  async handleGoogleCallback(googleUser: any) {
+    if (!googleUser?.email) {
+      throw new UnauthorizedException("Failed to retrieve Google user email");
+    }
+
+    let user = await this.userRepo.findOne({
+      where: { email: googleUser.email },
+    });
+
+    if (!user) {
+      const username =
+        googleUser.email.split("@")[0] + "_" + Date.now().toString(36);
+      user = this.userRepo.create({
+        username,
+        email: googleUser.email,
+        displayName: googleUser.firstName
+          ? `${googleUser.firstName} ${googleUser.lastName}`.trim()
+          : null,
+        avatarUrl: googleUser.picture || null,
+        oauthProvider: "google",
+      });
+      await this.userRepo.save(user);
+    }
+
+    const token = this.jwt.sign({ sub: user.id, username: user.username });
+    return {
+      accessToken: token,
+      user: { id: user.id, username: user.username, email: user.email },
+    };
+  }
+
   async generateTwoFactorAuthenticationSecret(user: any) {
     console.log("🟢 JWT User Payload:", user);
 
