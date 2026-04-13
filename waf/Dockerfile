@@ -1,14 +1,23 @@
 FROM owasp/modsecurity-crs:nginx-alpine
 
-# Create cert directory
-RUN mkdir -p /etc/nginx/certs && \
+USER root
+
+# Copy custom ModSecurity configuration
+COPY modsecurity.conf /etc/modsecurity.d/modsecurity-override.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY create-local-cert.sh /docker-entrypoint.d/01-create-cert.sh
+COPY 99-fix-proxy.sh /docker-entrypoint.d/99-fix-proxy.sh
+
+RUN chmod +x /docker-entrypoint.d/01-create-cert.sh && \
+    chmod +x /docker-entrypoint.d/99-fix-proxy.sh && \
+    mkdir -p /etc/nginx/certs && \
     rm -rf /var/cache/apk/*
 
-# Disable paranoia level and CRS overrides to allow more traffic
-ENV PARANOIA=1
-ENV ANOMALY_INBOUND=5
+# Strict paranoia level and anomaly thresholds
+ENV PARANOIA=2
+ENV ANOMALY_INBOUND=4
 ENV ANOMALY_OUTBOUND=4
-ENV ALLOWED_METHODS="GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE"
+ENV ALLOWED_METHODS="GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS"
 
 # Copy ModSecurity configuration override
 COPY modsecurity.conf /etc/modsecurity.d/modsecurity-custom.conf

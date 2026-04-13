@@ -81,9 +81,9 @@ async function seed() {
 
         const passwordHash = await bcrypt.hash(userData.password, 12);
 
-        const result = await dataSource.query(
+        await dataSource.query(
             `INSERT INTO users (username, email, password_hash, displayName, bio, is_online, two_factor_enabled)
-             VALUES ($1, $2, $3, $4, $5, false, false) RETURNING id`,
+             VALUES ($1, $2, $3, $4, $5, false, false)`,
             [userData.username, userData.email, passwordHash, userData.displayName, userData.bio]
         );
 
