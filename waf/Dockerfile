@@ -22,6 +22,8 @@ ENV ALLOWED_METHODS="GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS"
 # Copy ModSecurity configuration override
 COPY modsecurity.conf /etc/modsecurity.d/modsecurity-custom.conf
 
+COPY oauth-exclusions.conf /etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+
 # Copy certificate generation script
 COPY create-local-cert.sh /docker-entrypoint.d/01-create-cert.sh
 RUN chmod +x /docker-entrypoint.d/01-create-cert.sh || true

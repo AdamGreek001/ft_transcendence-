@@ -13,8 +13,8 @@ services:
       BACKEND_SSL: http://nginx:443
       PORT: 8080
       SSL_PORT: 8443
-      ANOMALY_INBOUND: 100
-      ANOMALY_OUTBOUND: 100
+      ANOMALY_INBOUND: 5
+      ANOMALY_OUTBOUND: 5
     depends_on:
       nginx:
         condition: service_started
