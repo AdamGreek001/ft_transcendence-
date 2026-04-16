@@ -187,9 +187,9 @@ make up
 
 | Feature              | Description                                         | Developer(s)    |
 |---------------------|-----------------------------------------------------|-----------------|
-| User Registration   | Email/password signup with validation                | \<login4\>      |
-| Google OAuth        | Social login via Google                              | \<login4\>      |
-| Two-Factor Auth     | TOTP-based 2FA with authenticator apps               | \<login4\>      |
+| User Registration   | Email/password signup with validation                | kelmounj        |
+| Google OAuth        | Social login via Google                              | kelmounj        |
+| Two-Factor Auth     | TOTP-based 2FA with authenticator apps               | kelmounj        |
 | User Profiles       | View/edit profile, avatar, bio, follow/block         | \<login3\>, \<login4\> |
 | Social Feed         | Create posts, infinite scroll, personalized timeline | \<login3\>      |
 | Likes & Comments    | React to and discuss posts                           | \<login3\>, \<login4\> |
@@ -199,7 +199,7 @@ make up
 | Media Upload        | Avatar and post image uploads (local storage)         | \<login5\>      |
 | Public API          | Rate-limited REST API (5+ endpoints)                 | \<login4\>      |
 | i18n                | English, French, Arabic translations                 | \<login3\>      |
-| Privacy & Terms     | Legal pages (privacy policy, terms of service)       | \<login3\>      |
+| Privacy & Terms     | Legal pages (privacy policy, terms of service)       | kelmounj        |
 | WAF/ModSecurity     | Web Application Firewall with OWASP CRS              | \<login2\>      |
 | Vault Secrets       | HashiCorp Vault for encrypted secrets management     | \<login2\>      |
 | Monitoring          | Prometheus metrics + Grafana dashboards              | \<login2\>      |
@@ -213,9 +213,9 @@ make up
 | Use a Framework (Backend) | Major | 2    | NestJS for modular, typed backend               | \<login4\>      |
 | Use a Framework (Frontend)| Major | 2   | Next.js for SSR, App Router, React 19           | \<login3\>      |
 | Use a database for Backend| Minor | 1   | PostgreSQL with TypeORM                         | \<login4\>      |
-| Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | \<login3\>, \<login4\> |
-| Remote Authentication (Google) | Major | 2 | Google OAuth2 integration                    | \<login4\>      |
-| Two-Factor Auth (TOTP)  | Major | 2     | TOTP authenticator app support                  | \<login4\>      |
+| Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | kelmounj , \<login4\> |
+| Remote Authentication (Google) | Major | 2 | Google OAuth2 integration                    | kelmounj        |
+| Two-Factor Auth (TOTP)  | Major | 2     | TOTP authenticator app support                  | kelmounj        |
 | Multiple Language Support| Minor | 1    | i18n with next-intl (EN/FR/AR)                  | \<login3\>      |
 | WAF/ModSecurity          | Major | 2    | OWASP CRS, strict request filtering             | \<login2\>      |
 | HashiCorp Vault          | Major | 2    | Encrypted secrets management                    | \<login2\>      |
@@ -255,7 +255,7 @@ make up
 
 ### \<login5\> — Full-Stack Developer
 - Implemented search module with filters
-- Built notification system
+- Built a notification system
 - Created media upload service (local storage)
 - Integrated frontend infinite scroll and WebSocket hooks
 
