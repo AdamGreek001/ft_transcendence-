@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Navbar from "@/components/auth/Navbar";
 import {
   Card,
@@ -18,9 +18,11 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { api } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
 
 const SignUpPage = () => {
   const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
 
   const [formData, setFormData] = useState({
     username: "",
@@ -29,6 +31,16 @@ const SignUpPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [check, setCheck] = useState(false);
+
+  useEffect(() => {
+    if (isHydrated && isAuthenticated) {
+      router.replace("/feed");
+    }
+  }, [isHydrated, isAuthenticated, router]);
+
+  if (isHydrated && isAuthenticated) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

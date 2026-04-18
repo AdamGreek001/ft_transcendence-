@@ -3,13 +3,20 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function OAuthCallbackPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const called = useRef(false);
+  const { isAuthenticated, isHydrated } = useAuth();
 
   useEffect(() => {
+    if (isHydrated && isAuthenticated) {
+      router.replace("/feed");
+      return;
+    }
+
     const token = searchParams.get("token");
     const user = searchParams.get("user");
 
@@ -32,7 +39,11 @@ export default function OAuthCallbackPage() {
         router.push("/login?error=oauth_failed");
       }
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, isHydrated, isAuthenticated]);
+
+  if (isHydrated && isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-900">

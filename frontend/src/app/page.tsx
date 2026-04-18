@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 
-export default function HomePage() {
+export default async function HomePage() {
+    const cookieStore = await cookies();
+    const isLoggedIn = !!cookieStore.get("token")?.value;
+
     return (
         <div className="min-h-screen bg-[#0d0d0f] text-white">
             {/* Navigation */}
@@ -20,14 +24,22 @@ export default function HomePage() {
                         <Link href="#safety" className="text-gray-400 hover:text-white transition text-sm">Safety</Link>
                         <Link href="#about" className="text-gray-400 hover:text-white transition text-sm">About</Link>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <Link href="/login" className="text-gray-300 hover:text-white transition text-sm font-medium">
-                            Log in
-                        </Link>
-                        <Link href="/register" className="bg-violet-600 hover:bg-violet-700 text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition whitespace-nowrap">
-                            Sign Up
-                        </Link>
-                    </div>
+                    {isLoggedIn ? (
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <Link href="/feed" className="bg-violet-600 hover:bg-violet-700 text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition whitespace-nowrap">
+                                Go to Home
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <Link href="/login" className="text-gray-300 hover:text-white transition text-sm font-medium">
+                                Log in
+                            </Link>
+                            <Link href="/register" className="bg-violet-600 hover:bg-violet-700 text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition whitespace-nowrap">
+                                Sign Up
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </nav>
 
@@ -47,8 +59,8 @@ export default function HomePage() {
                             Experience the next generation of social networking. Stitch your stories together, join vibrant communities, and share moments with the people who matter most.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-                            <Link href="/register" className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-full font-medium transition">
-                                Get Started for Free
+                            <Link href={isLoggedIn ? "/feed" : "/register"} className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-full font-medium transition">
+                                {isLoggedIn ? "Go to Home" : "Get Started for Free"}
                             </Link>
                             <button className="w-full sm:w-auto flex items-center justify-center gap-2 text-white px-6 py-3 rounded-full font-medium border border-gray-700 hover:bg-gray-800/50 transition">
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

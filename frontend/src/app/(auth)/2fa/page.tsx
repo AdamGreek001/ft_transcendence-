@@ -1,14 +1,26 @@
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/utils';
 import Cookies from 'js-cookie';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function TwoFactorVerify() {
   const searchParams = useSearchParams();
   const userId = searchParams.get('userId');
   const [code, setCode] = useState('');
   const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
+
+  useEffect(() => {
+    if (isHydrated && isAuthenticated) {
+      router.replace('/feed');
+    }
+  }, [isHydrated, isAuthenticated, router]);
+
+  if (isHydrated && isAuthenticated) {
+    return null;
+  }
 
   const handleVerify2FA = async () => {
     try {

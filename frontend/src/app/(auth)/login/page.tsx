@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 // import Navbar from "@/components/Navbar";
 import {
   Card,
@@ -16,13 +16,25 @@ import { api } from "@/lib/utils";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
+import { useAuth } from "@/hooks/useAuth";
 
 const LoginPage = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
   const router = useRouter();
+  const { isAuthenticated, isHydrated } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isHydrated && isAuthenticated) {
+      router.replace("/feed");
+    }
+  }, [isHydrated, isAuthenticated, router]);
+
+  if (isHydrated && isAuthenticated) {
+    return null;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
