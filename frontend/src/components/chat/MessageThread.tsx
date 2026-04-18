@@ -25,7 +25,7 @@ export function MessageThread({ messages = [], onSend }: MessageThreadProps) {
                 {messages.map((msg) => (
                     <div
                         key={msg.id}
-                        className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${msg.isMine
+                        className={`max-w-[88%] sm:max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.isMine
                                 ? "ml-auto bg-primary-600 text-white"
                                 : "bg-gray-100 text-gray-800"
                             }`}

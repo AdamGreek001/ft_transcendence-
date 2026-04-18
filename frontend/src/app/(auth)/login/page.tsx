@@ -55,8 +55,8 @@ const LoginPage = () => {
       {/* <header className="bg-gray-800">
         <Navbar buttonText="Sign in" paragraph="Don't have an account ?" />
       </header> */}
-      <main className="flex-1 flex flex-col items-center justify-center gap-4">
-        <Card className="w-90 max-w-sm bg-gray-900">
+      <main className="flex-1 flex flex-col items-center justify-center gap-4 px-4 py-6">
+        <Card className="w-full max-w-sm bg-gray-900">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-white">
               Welcom back
@@ -83,7 +83,7 @@ const LoginPage = () => {
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className=" border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    className=" border border-gray-600 rounded-lg w-full h-10 pl-10 bg-gray-800 text-white"
                     type="email"
                     placeholder="Bandit@example.com"
                     required
@@ -104,7 +104,7 @@ const LoginPage = () => {
                   />
                   <Input
                     id="pass"
-                    className="border border-gray-600 rounded-lg w-80 h-10  pl-10 pr-10 bg-gray-800 pt-3 text-white"
+                    className="border border-gray-600 rounded-lg w-full h-10 pl-10 pr-10 bg-gray-800 pt-3 text-white"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -116,7 +116,7 @@ const LoginPage = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-purple-600 hover:bg-purple-700 w-80 h-12 mt-6 text-lg"
+                className="bg-purple-600 hover:bg-purple-700 w-full h-12 mt-6 text-lg"
                 size="lg"
               >
                 {loading ? "Logging in..." : "Log In"}
@@ -135,14 +135,14 @@ const LoginPage = () => {
                 onClick={() =>
                   (window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
                 }
-                className="w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+                className="w-full sm:w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
                 Google
               </Button>
             </div>
           </CardContent>
         </Card>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap px-3">
           <a
             className="text-sm text-gray-400"
             href="http://localhost:3000/privacy-policy"

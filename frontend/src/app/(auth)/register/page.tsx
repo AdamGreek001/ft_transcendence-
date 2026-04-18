@@ -64,13 +64,13 @@ const SignUpPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 grid place-items-center">
-        <Card className="w-90 max-w-sm bg-gray-900 border-gray-800">
+      <main className="flex-1 grid place-items-center px-4 py-6">
+        <Card className="w-full max-w-sm bg-gray-900 border-gray-800">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-white">
               Create Account
             </CardTitle>
-            <CardAction className="flex items-center justify-center gap-24">
+            <CardAction className="flex items-center justify-between gap-2">
               <CardDescription className="text-gray-400 text-sm">
                 already have an account?
               </CardDescription>
@@ -101,7 +101,7 @@ const SignUpPage = () => {
                     id="full-name"
                     name="username"
                     onChange={handleChange}
-                    className="border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    className="border border-gray-600 rounded-lg w-full h-10 pl-10 bg-gray-800 text-white"
                     type="text"
                     placeholder="Bandit Klm"
                     required
@@ -124,7 +124,7 @@ const SignUpPage = () => {
                     id="email"
                     name="email"
                     onChange={handleChange}
-                    className=" border border-gray-600 rounded-lg w-80 h-10 pl-10 bg-gray-800 text-white"
+                    className=" border border-gray-600 rounded-lg w-full h-10 pl-10 bg-gray-800 text-white"
                     type="email"
                     placeholder="Bandit@example.com"
                     required
@@ -147,7 +147,7 @@ const SignUpPage = () => {
                     id="pass"
                     name="password"
                     onChange={handleChange}
-                    className="border border-gray-600 rounded-lg w-80 h-10  pl-10 pr-10 bg-gray-800 pt-3 text-white"
+                    className="border border-gray-600 rounded-lg w-full h-10 pl-10 pr-10 bg-gray-800 pt-3 text-white"
                     type="password"
                     placeholder="**********"
                     required
@@ -163,7 +163,7 @@ const SignUpPage = () => {
                     onClick={() => setCheck((prev) => !prev)}
                     className="rounded-full bg-gray-800"
                   />
-                  <FieldLabel className="items-center gap-1 whitespace-nowrap text-xs text-gray-500">
+                  <FieldLabel className="items-center gap-1 text-xs text-gray-500 leading-relaxed">
                     I agree to the{" "}
                     <a
                       className="text-purple-900"
@@ -184,7 +184,7 @@ const SignUpPage = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="hover:bg-purple-700  bg-purple-600 w-80 h-12 mt-4 text-lg"
+                className="hover:bg-purple-700 bg-purple-600 w-full h-12 mt-4 text-lg"
                 size="lg"
               >
                 {loading ? "Creating..." : "Create Account"}
@@ -211,7 +211,7 @@ const SignUpPage = () => {
                 onClick={() =>
                   (window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`)
                 }
-                className="w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
+                className="w-full sm:w-64 bg-gray-900 hover:bg-gray-800 border border-gray-800"
               >
                 Google
               </Button>

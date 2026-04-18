@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -159,7 +160,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0d0d0f]">
+      <div className="flex min-h-screen items-center justify-center bg-[#0d0d0f]">
         <div className="text-white text-lg animate-pulse">
           Loading your data...
         </div>
@@ -168,14 +169,48 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0d0d0f] flex-col lg:flex-row">
-      <div className="hidden md:block lg:block">
+    <div className="flex min-h-screen lg:h-[100dvh] bg-[#0d0d0f] flex-col lg:flex-row">
+      {isNavSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setIsNavSidebarOpen(false)}
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close navigation sidebar"
+          />
+          <div className="relative h-full w-[min(82vw,18rem)]">
+            <button
+              type="button"
+              onClick={() => setIsNavSidebarOpen(false)}
+              className="absolute right-3 top-3 z-10 p-2 rounded-full bg-black/40 text-white"
+              aria-label="Close sidebar"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <AppSidebar />
+          </div>
+        </div>
+      )}
+
+      <div className="hidden lg:block">
         <AppSidebar />
       </div>
 
       <main className="flex-1 overflow-y-auto flex flex-col">
         <div className="sticky top-0 bg-[#0d0d0f]/95 backdrop-blur z-10 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-800/50">
           <div className="flex items-center gap-2 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => setIsNavSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
+              aria-label="Open navigation sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <div className="flex-1 relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500"
@@ -422,9 +457,9 @@ export default function SettingsPage() {
 
                 <div className="bg-white p-4 rounded-xl mb-6 flex justify-center">
                   {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                    <img src={qrCodeUrl} alt="2FA QR Code" className="w-40 h-40 sm:w-48 sm:h-48" />
                   ) : (
-                    <div className="w-48 h-48 flex items-center justify-center text-gray-500 animate-pulse">
+                    <div className="w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center text-gray-500 animate-pulse">
                       Loading QR...
                     </div>
                   )}
@@ -439,7 +474,7 @@ export default function SettingsPage() {
                     maxLength={6}
                     value={twoFactorCode}
                     onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-4 py-3 bg-[#2a2a2f] border border-gray-700 rounded-xl text-center text-2xl tracking-[0.5em] font-mono text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                    className="w-full px-4 py-3 bg-[#2a2a2f] border border-gray-700 rounded-xl text-center text-xl sm:text-2xl tracking-[0.35em] sm:tracking-[0.5em] font-mono text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     placeholder="000000"
                   />
                 </div>
@@ -468,7 +503,7 @@ export default function SettingsPage() {
       </main>
 
       {/* Right Sidebar - Activity */}
-      <aside className="w-64 sm:w-72 border-l border-gray-800/50 p-4 sm:p-6 hidden xl:block overflow-y-auto">
+      <aside className="w-64 sm:w-72 border-l border-gray-800/50 p-4 sm:p-6 hidden 2xl:block overflow-y-auto">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 sm:mb-4">
           Last Activity
         </h3>

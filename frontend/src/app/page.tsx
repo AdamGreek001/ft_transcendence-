@@ -5,7 +5,7 @@ export default function HomePage() {
         <div className="min-h-screen bg-[#0d0d0f] text-white">
             {/* Navigation */}
             <nav className="sticky top-0 z-50 bg-[#0d0d0f]/95 backdrop-blur border-b border-gray-800/50">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
                             <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -20,11 +20,11 @@ export default function HomePage() {
                         <Link href="#safety" className="text-gray-400 hover:text-white transition text-sm">Safety</Link>
                         <Link href="#about" className="text-gray-400 hover:text-white transition text-sm">About</Link>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                         <Link href="/login" className="text-gray-300 hover:text-white transition text-sm font-medium">
                             Log in
                         </Link>
-                        <Link href="/register" className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-full text-sm font-medium transition">
+                        <Link href="/register" className="bg-violet-600 hover:bg-violet-700 text-white px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition whitespace-nowrap">
                             Sign Up
                         </Link>
                     </div>
@@ -32,18 +32,18 @@ export default function HomePage() {
             </nav>
 
             {/* Hero Section */}
-            <section className="py-20 px-6">
-                <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12">
+            <section className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6">
+                <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-8 sm:gap-12">
                     <div className="flex-1 text-center lg:text-left">
                         <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-1.5 mb-6">
                             <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
                             <span className="text-sm text-violet-400">V2.0 BETA IS HERE</span>
                         </div>
-                        <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                             Connect with<br />
                             <span className="text-violet-400 italic">your world</span>
                         </h1>
-                        <p className="text-lg text-gray-400 mb-8 max-w-xl">
+                        <p className="text-base sm:text-lg text-gray-400 mb-8 max-w-xl">
                             Experience the next generation of social networking. Stitch your stories together, join vibrant communities, and share moments with the people who matter most.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
@@ -57,7 +57,7 @@ export default function HomePage() {
                                 See how it works
                             </button>
                         </div>
-                        <div className="flex items-center justify-center lg:justify-start gap-3">
+                        <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
                             <div className="flex -space-x-2">
                                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1" alt="" className="w-8 h-8 rounded-full border-2 border-[#0d0d0f]" />
                                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user2" alt="" className="w-8 h-8 rounded-full border-2 border-[#0d0d0f]" />
@@ -67,10 +67,10 @@ export default function HomePage() {
                         </div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                        <div className="relative w-64 h-[500px] bg-gradient-to-br from-orange-300 via-pink-300 to-violet-300 rounded-3xl overflow-hidden shadow-2xl">
+                        <div className="relative w-[min(72vw,16rem)] sm:w-[min(70vw,18rem)] md:w-64 aspect-[9/16] bg-gradient-to-br from-orange-300 via-pink-300 to-violet-300 rounded-3xl overflow-hidden shadow-2xl">
                             <div className="absolute inset-0 bg-gradient-to-br from-orange-200/50 via-pink-200/50 to-teal-200/50 opacity-80"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-48 h-48 rounded-full bg-gradient-to-br from-orange-400 via-pink-400 to-teal-400 opacity-60 blur-xl"></div>
+                                <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-full bg-gradient-to-br from-orange-400 via-pink-400 to-teal-400 opacity-60 blur-xl"></div>
                             </div>
                         </div>
                     </div>
@@ -78,15 +78,15 @@ export default function HomePage() {
             </section>
 
             {/* Features Section */}
-            <section id="features" className="py-20 px-6">
+            <section id="features" className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6">
                 <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-16">
-                        <h2 className="text-4xl font-bold mb-4">Redefining Connection</h2>
+                    <div className="text-center mb-10 sm:mb-16">
+                        <h2 className="text-3xl sm:text-4xl font-bold mb-4">Redefining Connection</h2>
                         <p className="text-gray-400 max-w-2xl mx-auto">
                             We&apos;ve built a platform that focuses on meaningful interactions rather than infinite scrolling. Discover tools designed to bring you closer to your community.
                         </p>
                     </div>
-                    <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                         {/* Feature 1 */}
                         <div className="bg-[#1a1a1f] rounded-2xl p-6 border border-gray-800/50">
                             <div className="w-12 h-12 bg-violet-500/20 rounded-xl flex items-center justify-center mb-4">
@@ -130,32 +130,32 @@ export default function HomePage() {
             </section>
 
             {/* Visual Discovery Section */}
-            <section className="py-20 px-6">
+            <section className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6">
                 <div className="max-w-7xl mx-auto">
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div className="relative h-96 rounded-2xl overflow-hidden group">
+                    <div className="grid md:grid-cols-2 gap-4 sm:gap-6">
+                        <div className="relative h-56 sm:h-72 md:h-96 rounded-2xl overflow-hidden group">
                             <img 
                                 src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop" 
                                 alt="Visual Discovery" 
                                 className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                            <div className="absolute bottom-6 left-6 right-6">
-                                <h3 className="text-2xl font-bold mb-2">Visual Discovery</h3>
+                            <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
+                                <h3 className="text-xl sm:text-2xl font-bold mb-2">Visual Discovery</h3>
                                 <p className="text-gray-300 text-sm">
                                     Explore content through a beautiful, immersive lens tailored to your interests.
                                 </p>
                             </div>
                         </div>
-                        <div className="relative h-96 rounded-2xl overflow-hidden group">
+                        <div className="relative h-56 sm:h-72 md:h-96 rounded-2xl overflow-hidden group">
                             <img 
                                 src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&h=400&fit=crop" 
                                 alt="Seamless Sharing" 
                                 className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-                            <div className="absolute bottom-6 left-6 right-6">
-                                <h3 className="text-2xl font-bold mb-2">Seamless Sharing</h3>
+                            <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
+                                <h3 className="text-xl sm:text-2xl font-bold mb-2">Seamless Sharing</h3>
                                 <p className="text-gray-300 text-sm">
                                     Connecting with friends and sharing content across platforms has never been easier.
                                 </p>
@@ -166,9 +166,9 @@ export default function HomePage() {
             </section>
 
             {/* CTA Section */}
-            <section className="py-20 px-6 bg-gradient-to-r from-violet-600 to-purple-600">
+            <section className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6 bg-gradient-to-r from-violet-600 to-purple-600">
                 <div className="max-w-3xl mx-auto text-center">
-                    <h2 className="text-4xl font-bold mb-4">Be the first to join the movement</h2>
+                    <h2 className="text-3xl sm:text-4xl font-bold mb-4">Be the first to join the movement</h2>
                     <p className="text-violet-100 mb-8">
                         We&apos;re rolling out access in waves. Enter your email to get early access and exclusive updates on our journey.
                     </p>
@@ -190,7 +190,7 @@ export default function HomePage() {
             </section>
 
             {/* Footer */}
-            <footer className="py-8 px-6 border-t border-gray-800/50">
+            <footer className="py-8 px-4 sm:px-6 border-t border-gray-800/50">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-purple-600 rounded-md flex items-center justify-center">
@@ -200,7 +200,7 @@ export default function HomePage() {
                         </div>
                         <span className="font-semibold text-sm">StitchSocial</span>
                     </div>
-                    <div className="flex items-center gap-6 text-sm text-gray-400">
+                    <div className="flex items-center gap-4 sm:gap-6 text-sm text-gray-400 flex-wrap justify-center">
                         <Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link>
                         <Link href="/terms-of-service" className="hover:text-white transition">Terms of Service</Link>
                         <span>Cookies</span>

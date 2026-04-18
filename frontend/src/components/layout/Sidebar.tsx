@@ -19,7 +19,7 @@ export function Sidebar() {
     const pathname = usePathname();
 
     return (
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 border-r border-gray-200 bg-white p-4 lg:block">
+        <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-64 border-r border-gray-200 bg-white p-4 lg:block">
             <nav className="flex flex-col gap-1">
                 {sideItems.map((item) => (
                     <Link

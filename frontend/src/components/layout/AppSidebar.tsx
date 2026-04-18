@@ -92,10 +92,8 @@ function ProfileIcon({ className, filled }: { className?: string; filled?: boole
 
 const navItems: NavItem[] = [
     { href: "/feed", label: "Home", icon: HomeIcon },
-    { href: "/explore", label: "Explore", icon: ExploreIcon },
     { href: "/messages", label: "Messages", icon: MessagesIcon, badgeKey: "messages" },
     { href: "/notifications", label: "Notifications", icon: NotificationsIcon, badgeKey: "notifications" },
-    { href: "/profile", label: "Profile", icon: ProfileIcon },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -142,7 +140,7 @@ export function AppSidebar({
     };
 
     return (
-        <aside className="w-56 bg-[#0d0d0f] border-r border-gray-800/50 flex flex-col h-screen sticky top-0">
+        <aside className="w-full md:w-56 bg-[#0d0d0f] border-r border-gray-800/50 flex flex-col h-[100dvh] sticky top-0">
             {/* Logo */}
             <div className="p-6 pb-8">
                 <Link href="/" className="flex items-center gap-2">

@@ -8,8 +8,8 @@ const TermsOfService = () => {
         <Navbar buttonText="Sign Up" paragraph="Don't have an account ?" />
       </header> */}
       
-      <main className="max-w-4xl mx-auto py-16 px-6">
-        <h1 className="text-4xl font-bold text-white mb-8 border-b border-gray-800 pb-4">
+      <main className="max-w-4xl mx-auto py-10 sm:py-16 px-4 sm:px-6">
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-8 border-b border-gray-800 pb-4">
           Terms of Service
         </h1>
         <p className="mb-6 text-sm italic text-gray-500">Effective Date: March 26, 2026</p>

@@ -59,6 +59,7 @@ export default function MessagesPage() {
     const [isSending, setIsSending] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
     
@@ -420,6 +421,7 @@ export default function MessagesPage() {
 
     // Handle conversation selection
     const handleSelectConversation = async (convId: string) => {
+        setIsNavSidebarOpen(false);
         setSelectedConversationId(convId);
         setTypingUsers(new Set()); // Clear typing indicators when switching conversations
         
@@ -538,7 +540,7 @@ export default function MessagesPage() {
                     <img
                         src={fullUrl}
                         alt={fileName}
-                        className="max-w-xs max-h-96 rounded-lg object-cover cursor-pointer hover:opacity-90 transition"
+                        className="max-w-[min(72vw,20rem)] max-h-80 sm:max-h-96 rounded-lg object-cover cursor-pointer hover:opacity-90 transition"
                         loading="lazy"
                         onClick={() => window.open(fullUrl, "_blank")}
                         onError={(e) => {
@@ -591,31 +593,69 @@ export default function MessagesPage() {
     const messageGroups = groupMessagesByDate(messages);
 
     return (
-        <div className="flex h-screen bg-[#0d0d0f]">
+        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
+            {isNavSidebarOpen && (
+                <div className="fixed inset-0 z-50 lg:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setIsNavSidebarOpen(false)}
+                        className="absolute inset-0 bg-black/60"
+                        aria-label="Close navigation sidebar"
+                    />
+                    <div className="relative h-full w-[min(82vw,18rem)]">
+                        <button
+                            type="button"
+                            onClick={() => setIsNavSidebarOpen(false)}
+                            className="absolute right-3 top-3 z-10 p-2 rounded-full bg-black/40 text-white"
+                            aria-label="Close sidebar"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <AppSidebar />
+                    </div>
+                </div>
+            )}
+
             {/* Left Sidebar */}
-            <AppSidebar />
+            <div className="hidden lg:block">
+                <AppSidebar />
+            </div>
 
             {/* Conversations List */}
-            <div className="w-80 border-r border-gray-800/50 flex flex-col bg-[#0d0d0f]">
+            <div className={`${selectedConversation ? "hidden md:flex" : "flex"} w-full md:w-72 lg:w-80 border-r border-gray-800/50 flex-col bg-[#0d0d0f]`}>
                 {/* Search */}
-                <div className="p-4">
-                    <div className="relative">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input
-                            type="text"
-                            placeholder="Search messages, people..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
-                        />
+                <div className="p-3 sm:p-4">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsNavSidebarOpen(true)}
+                            className="lg:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
+                            aria-label="Open navigation sidebar"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <div className="relative flex-1">
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input
+                                type="text"
+                                placeholder="Search messages, people..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
+                            />
+                        </div>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="px-4 flex gap-2 mb-2">
+                <div className="px-3 sm:px-4 flex gap-2 mb-2">
                     <button
                         onClick={() => setActiveTab("direct")}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                             activeTab === "direct"
                                 ? "bg-violet-600 text-white"
                                 : "text-gray-400 hover:bg-gray-800/50"
@@ -625,7 +665,7 @@ export default function MessagesPage() {
                     </button>
                     <button
                         onClick={() => setActiveTab("groups")}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                             activeTab === "groups"
                                 ? "bg-violet-600 text-white"
                                 : "text-gray-400 hover:bg-gray-800/50"
@@ -671,12 +711,30 @@ export default function MessagesPage() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col bg-[#0d0d0f]">
+            <div className={`${selectedConversation ? "flex" : "hidden md:flex"} flex-1 flex-col bg-[#0d0d0f]`}>
                 {selectedConversation ? (
                     <>
                         {/* Chat Header */}
-                        <div className="px-6 py-4 border-b border-gray-800/50 flex items-center justify-between">
+                        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-800/50 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setIsNavSidebarOpen(true)}
+                                    className="lg:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
+                                    aria-label="Open navigation sidebar"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={() => setSelectedConversationId(undefined)}
+                                    className="md:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
+                                    aria-label="Back to conversations"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
                                 <Avatar src={selectedConversation.avatarUrl} alt={selectedConversation.name} size={40} />
                                 <div>
                                     <h2 className="font-semibold text-white">{selectedConversation.name}</h2>
@@ -718,7 +776,7 @@ export default function MessagesPage() {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-6">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
                             {messageGroups.map((group) => (
                                 <div key={group.date}>
                                     <div className="flex items-center justify-center my-4">
@@ -729,7 +787,7 @@ export default function MessagesPage() {
                                             key={msg.id}
                                             className={`flex mb-4 ${msg.isMine ? "justify-end" : "justify-start"}`}
                                         >
-                                            <div className={`flex items-end gap-2 max-w-[70%] ${msg.isMine ? "flex-row-reverse" : ""}`}>
+                                            <div className={`flex items-end gap-2 max-w-[88%] sm:max-w-[78%] lg:max-w-[68%] ${msg.isMine ? "flex-row-reverse" : ""}`}>
                                                 {!msg.isMine && (
                                                     <Avatar
                                                         src={selectedConversation.avatarUrl}
@@ -767,7 +825,7 @@ export default function MessagesPage() {
                         </div>
 
                         {/* Message Input */}
-                        <div className="p-4 border-t border-gray-800/50">
+                        <div className="p-3 sm:p-4 border-t border-gray-800/50">
                             {/* Typing indicator */}
                             {typingUsers.size > 0 && (
                                 <div className="text-xs text-gray-400 mb-2 pl-2">
@@ -790,7 +848,7 @@ export default function MessagesPage() {
                                     value={input}
                                     onChange={(e) => handleInputChange(e.target.value)}
                                     placeholder="Type a message..."
-                                    className="flex-1 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
+                                    className="flex-1 min-w-0 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                                 />
                                 <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                                 <button

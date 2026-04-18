@@ -8,8 +8,8 @@ const PrivacyPolicy = () => {
         <Navbar buttonText="Sign Up" paragraph="Don't have an account ?" />
       </header> */}
       
-      <main className="max-w-4xl mx-auto py-16 px-6">
-        <h1 className="text-4xl font-bold text-white mb-8">Privacy Policy</h1>
+      <main className="max-w-4xl mx-auto py-10 sm:py-16 px-4 sm:px-6">
+        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-8">Privacy Policy</h1>
         <p className="mb-6 text-sm italic">Last updated: March 26, 2026</p>
 
         <section className="mb-10">

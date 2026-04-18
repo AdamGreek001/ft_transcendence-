@@ -152,6 +152,7 @@ export default function NotificationsPage() {
     const [activeTab, setActiveTab] = useState<"all" | "unread" | "read">("all");
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const socketRef = useRef<Socket | null>(null);
     const { setUnreadCount, markAsRead: markStoreAsRead, markAllAsRead: markStoreAllAsRead } = useNotificationsStore();
 
@@ -259,15 +260,51 @@ export default function NotificationsPage() {
     });
 
     return (
-        <div className="flex h-screen bg-[#0d0d0f]">
+        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
+            {isNavSidebarOpen && (
+                <div className="fixed inset-0 z-50 lg:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setIsNavSidebarOpen(false)}
+                        className="absolute inset-0 bg-black/60"
+                        aria-label="Close navigation sidebar"
+                    />
+                    <div className="relative h-full w-[min(82vw,18rem)]">
+                        <button
+                            type="button"
+                            onClick={() => setIsNavSidebarOpen(false)}
+                            className="absolute right-3 top-3 z-10 p-2 rounded-full bg-black/40 text-white"
+                            aria-label="Close sidebar"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <AppSidebar />
+                    </div>
+                </div>
+            )}
+
             {/* Left Sidebar */}
-            <AppSidebar />
+            <div className="hidden lg:block">
+                <AppSidebar />
+            </div>
 
             {/* Main Content */}
             <main className="flex-1 border-r border-gray-800/50 overflow-y-auto">
                 {/* Top Bar */}
-                <div className="sticky top-0 bg-[#0d0d0f]/95 backdrop-blur z-10 px-4 py-3 border-b border-gray-800/50">
+                <div className="sticky top-0 bg-[#0d0d0f]/95 backdrop-blur z-10 px-3 sm:px-4 py-3 border-b border-gray-800/50">
                     <div className="flex items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsNavSidebarOpen(true)}
+                            className="lg:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
+                            aria-label="Open navigation sidebar"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
                         <div className="flex-1 relative">
                             <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -289,7 +326,7 @@ export default function NotificationsPage() {
 
                 {/* Tabs and Actions */}
                 <div className="border-b border-gray-800/50">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-1 overflow-x-auto">
                             {[
                                 { id: "all", label: "All" },
@@ -299,7 +336,7 @@ export default function NotificationsPage() {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                                    className={`px-4 py-4 text-sm font-medium transition-colors relative whitespace-nowrap ${
+                                    className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-colors relative whitespace-nowrap ${
                                         activeTab === tab.id
                                             ? "text-white"
                                             : "text-gray-500 hover:text-gray-300"
@@ -315,7 +352,7 @@ export default function NotificationsPage() {
                         <button
                             onClick={markAllAsRead}
                             disabled={!notifications.some(n => !n.read)}
-                            className={`px-4 py-2 text-sm transition border-l border-gray-800/50 ${
+                            className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm transition border-t sm:border-t-0 sm:border-l border-gray-800/50 text-left sm:text-center ${
                                 notifications.some(n => !n.read)
                                     ? "text-violet-400 hover:text-violet-300 cursor-pointer"
                                     : "text-gray-600 cursor-not-allowed opacity-50"
@@ -338,10 +375,10 @@ export default function NotificationsPage() {
                                 key={notification.id} 
                                 className={`p-4 hover:bg-gray-800/20 transition ${!notification.read ? 'bg-violet-500/5' : 'opacity-60'}`}
                             >
-                                <div className="flex gap-3 items-start">
+                                <div className="flex flex-col sm:flex-row gap-3 items-start">
                                     <NotificationIcon type={notification.type} />
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
                                             {notification.users[0] && (
                                                 <Avatar 
                                                     src={notification.users[0].avatarUrl} 
@@ -349,23 +386,23 @@ export default function NotificationsPage() {
                                                     size={24} 
                                                 />
                                             )}
-                                            <span className="font-medium text-white text-sm">
+                                            <span className="font-medium text-white text-sm break-words">
                                                 {notification.users[0]?.name}
                                             </span>
-                                            <span className="text-gray-500 text-sm">{notification.content}</span>
-                                            <span className="text-gray-600 text-xs ml-auto">{notification.time}</span>
+                                            <span className="text-gray-500 text-sm break-words">{notification.content}</span>
+                                            <span className="text-gray-600 text-xs sm:ml-auto">{notification.time}</span>
                                             {!notification.read && (
                                                 <span className="w-2 h-2 bg-violet-500 rounded-full flex-shrink-0" />
                                             )}
                                         </div>
                                         {notification.quotedContent && (
-                                            <p className="text-gray-400 text-sm mt-1">{notification.quotedContent}</p>
+                                            <p className="text-gray-400 text-sm mt-1 break-words">{notification.quotedContent}</p>
                                         )}
                                     </div>
                                     {!notification.read && (
                                         <button
                                             onClick={() => markAsRead(notification.id)}
-                                            className="ml-2 px-3 py-1 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded transition flex-shrink-0"
+                                            className="sm:ml-2 px-3 py-1 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded transition flex-shrink-0"
                                         >
                                             Mark as read
                                         </button>
@@ -378,7 +415,7 @@ export default function NotificationsPage() {
             </main>
 
             {/* Right Sidebar */}
-            <aside className="w-80 p-6 hidden lg:block overflow-y-auto">
+            <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto">
                 {/* Trending */}
                 <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
                     <h3 className="text-lg font-semibold text-white mb-4">Trending in Textiles</h3>

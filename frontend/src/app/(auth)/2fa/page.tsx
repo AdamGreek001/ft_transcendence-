@@ -25,20 +25,20 @@ export default function TwoFactorVerify() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Two-Factor Authentication</h1>
-      <p className="mb-4">Enter the 6-digit code from your app</p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0d0d0f] text-white px-4">
+      <h1 className="text-xl sm:text-2xl font-bold mb-4 text-center">Two-Factor Authentication</h1>
+      <p className="mb-4 text-sm sm:text-base text-gray-300 text-center">Enter the 6-digit code from your app</p>
       <input 
         type="text"
         maxLength={6}
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        className="border p-2 rounded text-center text-2xl tracking-widest w-48 mb-4 text-black"
+        className="border border-gray-700 bg-[#1a1a1f] p-2.5 rounded text-center text-xl sm:text-2xl tracking-[0.35em] sm:tracking-widest w-full max-w-48 mb-4 text-white"
         placeholder="000000"
       />
       <button 
         onClick={handleVerify2FA}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 w-full max-w-48"
       >
         Verify Code
       </button>
