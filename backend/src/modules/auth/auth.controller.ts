@@ -15,8 +15,10 @@ import { ApiTags, ApiOperation, ApiBody } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto, GoogleOAuthDto } from "./auth.dto";
 import { AuthGuard } from "@nestjs/passport";
+import { Public } from "../../common/decorators/public.decorator";
 
 @ApiTags("Auth")
+@Public()
 @Controller("auth")
 export class AuthController {
   constructor(

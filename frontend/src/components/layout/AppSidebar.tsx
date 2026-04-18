@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui";
 import { useNotificationsStore } from "@/store/notifications";
 import { useMessagesStore } from "@/store/messages";
 import { useNotificationSocket } from "@/hooks/useNotificationSocket";
+import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 
@@ -90,6 +91,14 @@ function ProfileIcon({ className, filled }: { className?: string; filled?: boole
     );
 }
 
+function LogoutIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+        </svg>
+    );
+}
+
 const navItems: NavItem[] = [
     { href: "/feed", label: "Home", icon: HomeIcon },
     { href: "/messages", label: "Messages", icon: MessagesIcon, badgeKey: "messages" },
@@ -111,6 +120,7 @@ export function AppSidebar({
     showPostButton = false 
 }: AppSidebarProps) {
     const pathname = usePathname();
+    const { logout } = useAuth();
     const { unreadCount, setUnreadCount } = useNotificationsStore();
     const { unreadCount: messagesUnreadCount, setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
     const accessToken = useAuthStore((s) => s.accessToken);
@@ -190,6 +200,15 @@ export function AppSidebar({
                         Post Thread
                     </button>
                 )}
+
+                <button
+                    type="button"
+                    onClick={logout}
+                    className="w-full mt-2 flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all text-gray-300 hover:bg-gray-800/50"
+                >
+                    <LogoutIcon className="h-5 w-5" />
+                    <span className="font-medium">Logout</span>
+                </button>
             </nav>
 
             {/* User Profile at Bottom */}
