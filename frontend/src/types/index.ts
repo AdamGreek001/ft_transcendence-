@@ -67,6 +67,8 @@ export interface ChatConversation {
     lastMessageAt: string;
     unreadCount: number;
     otherUserId?: string;
+    otherUsername?: string;
+    otherDisplayName?: string | null;
     isOnline?: boolean;
 }
 

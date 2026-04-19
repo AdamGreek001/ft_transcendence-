@@ -76,6 +76,46 @@ export class ChatService {
         return fullMsg!;
     }
 
+    async startConversation(currentUserId: string, otherUserId: string) {
+        if (currentUserId === otherUserId) {
+            throw new ForbiddenException("Cannot start a conversation with yourself");
+        }
+
+        const otherUser = await this.userRepo.findOne({ where: { id: otherUserId } });
+        if (!otherUser) {
+            throw new NotFoundException("User not found");
+        }
+
+        const isBlocked = await this.blockRepo.findOne({
+            where: [
+                { blockerId: otherUserId, blockedId: currentUserId },
+                { blockerId: currentUserId, blockedId: otherUserId },
+            ],
+        });
+
+        if (isBlocked) {
+            throw new ForbiddenException("Cannot start a conversation with this user");
+        }
+
+        const conversation = await this.getOrCreateConversation(currentUserId, otherUserId);
+
+        return {
+            id: conversation.id,
+            name: otherUser.displayName || otherUser.username,
+            avatarUrl: otherUser.avatarUrl,
+            lastMessage: conversation.lastMessage || "",
+            lastMessageAt: conversation.lastMessageAt || new Date().toISOString(),
+            unreadCount: 0,
+            otherUser: {
+                id: otherUser.id,
+                username: otherUser.username,
+                displayName: otherUser.displayName,
+                avatarUrl: otherUser.avatarUrl,
+                isOnline: otherUser.isOnline,
+            },
+        };
+    }
+
     async getConversations(userId: string) {
         const conversations = await this.convRepo
             .createQueryBuilder("conv")

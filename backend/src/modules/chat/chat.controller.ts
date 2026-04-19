@@ -57,6 +57,12 @@ export class ChatController {
         return this.chatService.sendMessage(req.user.sub, dto.receiverId, dto.content);
     }
 
+    @Post("conversations/start")
+    @ApiOperation({ summary: "Get or create a direct conversation with a user" })
+    async startConversation(@Body("userId") userId: string, @Req() req: any) {
+        return this.chatService.startConversation(req.user.sub, userId);
+    }
+
     @Patch("messages/:id/read")
     @ApiOperation({ summary: "Mark a message as read" })
     async markAsRead(@Param("id") messageId: string, @Req() req: any) {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui";
 import { useNotificationsStore } from "@/store/notifications";
 import { useMessagesStore } from "@/store/messages";
@@ -116,14 +116,74 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ 
-    user = { name: "LATINO", username: "@latino", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex" },
+    user,
     showPostButton = false 
 }: AppSidebarProps) {
     const pathname = usePathname();
-    const { logout } = useAuth();
+    const { logout, user: authUser } = useAuth();
     const { unreadCount, setUnreadCount } = useNotificationsStore();
     const { unreadCount: messagesUnreadCount, setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
     const accessToken = useAuthStore((s) => s.accessToken);
+    const [currentUserProfile, setCurrentUserProfile] = useState<{
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+    } | null>(null);
+
+    const normalizeAvatarUrl = (avatarUrl?: string | null, username?: string) => {
+        if (!avatarUrl) {
+            return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
+        }
+        if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+            return avatarUrl;
+        }
+
+        const mediaBaseUrl = process.env.NEXT_PUBLIC_MEDIA_URL || "http://localhost:3001/uploads";
+        const cleanBase = mediaBaseUrl.replace(/\/+$/, "");
+
+        if (avatarUrl.startsWith("/uploads/")) {
+            return `${cleanBase}/${avatarUrl.replace(/^\/uploads\//, "")}`;
+        }
+        if (avatarUrl.startsWith("/avatars/")) {
+            return `${cleanBase}/${avatarUrl.replace(/^\//, "")}`;
+        }
+        if (avatarUrl.startsWith("avatars/")) {
+            return `${cleanBase}/${avatarUrl}`;
+        }
+        return `${cleanBase}/${avatarUrl.replace(/^\/+/, "")}`;
+    };
+
+    useEffect(() => {
+        if (!accessToken) return;
+
+        apiClient
+            .get<{ username: string; displayName: string | null; avatarUrl: string | null }>("/users/me")
+            .then((profile) => setCurrentUserProfile(profile))
+            .catch((err) => console.error("Failed to fetch current user profile:", err));
+    }, [accessToken]);
+
+    const resolvedName =
+        user?.name ||
+        currentUserProfile?.displayName ||
+        authUser?.displayName ||
+        currentUserProfile?.username ||
+        authUser?.username ||
+        "User";
+
+    const resolvedRawUsername =
+        user?.username ||
+        currentUserProfile?.username ||
+        authUser?.username ||
+        "user";
+
+    const resolvedUsername = resolvedRawUsername.startsWith("@")
+        ? resolvedRawUsername
+        : `@${resolvedRawUsername}`;
+
+    const resolvedAvatar = normalizeAvatarUrl(
+        user?.avatarUrl || currentUserProfile?.avatarUrl || authUser?.avatarUrl,
+        currentUserProfile?.username || authUser?.username || "user",
+    );
     
     // Initialize notification WebSocket connection
     useNotificationSocket();
@@ -213,17 +273,17 @@ export function AppSidebar({
 
             {/* User Profile at Bottom */}
             <div className="p-4 border-t border-gray-800/50">
-                <div className="flex items-center gap-3">
+                <Link href="/profile" className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-gray-800/40 transition">
                     <Avatar
-                        src={user.avatarUrl}
-                        alt={user.name}
+                        src={resolvedAvatar}
+                        alt={resolvedName}
                         size={40}
                     />
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{user.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.username}</p>
+                        <p className="text-sm font-medium text-white truncate">{resolvedName}</p>
+                        <p className="text-xs text-gray-500 truncate">{resolvedUsername}</p>
                     </div>
-                </div>
+                </Link>
             </div>
         </aside>
     );

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { FileUploadModal } from "@/components/chat/FileUploadModal";
@@ -48,7 +50,19 @@ interface MessagesResponse {
     hasMore: boolean;
 }
 
+interface FollowingRelation {
+    followingId: string;
+    following: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        isOnline?: boolean;
+    };
+}
+
 export default function MessagesPage() {
+    const searchParams = useSearchParams();
     const { user, isAuthenticated, isHydrated } = useAuth();
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>();
@@ -60,12 +74,29 @@ export default function MessagesPage() {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
+    const [isInfoSidebarOpen, setIsInfoSidebarOpen] = useState(false);
+    const [peopleSearch, setPeopleSearch] = useState("");
+    const [followingUsers, setFollowingUsers] = useState<FollowingRelation[]>([]);
+    const [isStartingChatUserId, setIsStartingChatUserId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
     
     // Notification stores
     const { setUnreadCount: setNotificationUnreadCount } = useNotificationsStore();
     const { setUnreadCount: setMessagesUnreadCount } = useMessagesStore();
+
+    const mapConversation = (conv: ConversationResponse): ChatConversation => ({
+        id: conv.id,
+        name: conv.otherUser?.displayName || conv.otherUser?.username || conv.name,
+        avatarUrl: conv.otherUser?.avatarUrl || conv.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${conv.name}`,
+        lastMessage: conv.lastMessage || "",
+        lastMessageAt: conv.lastMessageAt || new Date().toISOString(),
+        unreadCount: conv.unreadCount,
+        otherUserId: conv.otherUser?.id,
+        otherUsername: conv.otherUser?.username,
+        otherDisplayName: conv.otherUser?.displayName,
+        isOnline: conv.otherUser?.isOnline || false,
+    });
 
     // Handle incoming WebSocket messages
     const handleIncomingMessage = useCallback((message: Message) => {
@@ -170,16 +201,17 @@ export default function MessagesPage() {
             setIsLoading(true);
             try {
                 const data = await apiClient.get<ConversationResponse[]>("/chat/conversations");
-                setConversations(data.map(conv => ({
-                    id: conv.id,
-                    name: conv.otherUser?.displayName || conv.otherUser?.username || conv.name,
-                    avatarUrl: conv.otherUser?.avatarUrl || conv.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${conv.name}`,
-                    lastMessage: conv.lastMessage || "",
-                    lastMessageAt: conv.lastMessageAt || new Date().toISOString(),
-                    unreadCount: conv.unreadCount,
-                    otherUserId: conv.otherUser?.id,
-                    isOnline: conv.otherUser?.isOnline || false,
-                })));
+                const mapped = data.map(mapConversation);
+                setConversations(mapped);
+
+                const preselectedConversationId = searchParams.get("conversationId");
+                if (preselectedConversationId) {
+                    const exists = mapped.some((c) => c.id === preselectedConversationId);
+                    if (exists) {
+                        setSelectedConversationId(preselectedConversationId);
+                        return;
+                    }
+                }
                 // Select first conversation by default
                 if (data.length > 0 && !selectedConversationId) {
                     setSelectedConversationId(data[0].id);
@@ -192,7 +224,78 @@ export default function MessagesPage() {
         };
 
         fetchConversations();
-    }, [isHydrated, isAuthenticated]);
+    }, [isHydrated, isAuthenticated, searchParams]);
+
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated || !user?.id) return;
+
+        const fetchFollowing = async () => {
+            try {
+                const data = await apiClient.get<FollowingRelation[]>(`/users/${user.id}/following`);
+                setFollowingUsers(data || []);
+            } catch (error) {
+                console.error("Failed to fetch following users:", error);
+                setFollowingUsers([]);
+            }
+        };
+
+        fetchFollowing();
+    }, [isHydrated, isAuthenticated, user?.id]);
+
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const matchesPattern = (text: string, pattern: string) => {
+        const normalizedText = text.toLowerCase();
+        const normalizedPattern = pattern.toLowerCase().trim();
+        if (!normalizedPattern) return true;
+
+        const regexPattern = escapeRegex(normalizedPattern)
+            .replace(/\\\*/g, ".*")
+            .replace(/\\\?/g, ".");
+
+        try {
+            return new RegExp(regexPattern).test(normalizedText);
+        } catch {
+            return normalizedText.includes(normalizedPattern.replace(/[?*]/g, ""));
+        }
+    };
+
+    const followingSearchResults = followingUsers
+        .filter((item) => {
+            const q = peopleSearch.trim();
+            if (!q) return false;
+            const username = item.following?.username || "";
+            const displayName = item.following?.displayName || "";
+            return matchesPattern(username, q) || matchesPattern(displayName, q);
+        })
+        .slice(0, 8);
+
+    const handleStartChatWithFollowing = async (item: FollowingRelation) => {
+        const targetId = item.following?.id;
+        if (!targetId) return;
+
+        const existing = conversations.find((c) => c.otherUserId === targetId);
+        if (existing) {
+            setSelectedConversationId(existing.id);
+            setPeopleSearch("");
+            return;
+        }
+
+        setIsStartingChatUserId(targetId);
+        try {
+            const conv = await apiClient.post<ConversationResponse>("/chat/conversations/start", {
+                userId: targetId,
+            });
+            const mapped = mapConversation(conv);
+            setConversations((prev) => [mapped, ...prev]);
+            setSelectedConversationId(mapped.id);
+            setPeopleSearch("");
+        } catch (error) {
+            console.error("Failed to start conversation:", error);
+        } finally {
+            setIsStartingChatUserId(null);
+        }
+    };
 
     // Load messages for selected conversation
     useEffect(() => {
@@ -422,6 +525,7 @@ export default function MessagesPage() {
     // Handle conversation selection
     const handleSelectConversation = async (convId: string) => {
         setIsNavSidebarOpen(false);
+        setIsInfoSidebarOpen(false);
         setSelectedConversationId(convId);
         setTypingUsers(new Set()); // Clear typing indicators when switching conversations
         
@@ -644,9 +748,55 @@ export default function MessagesPage() {
                             </svg>
                             <input
                                 type="text"
-                                placeholder="Search messages, people..."
+                                value={peopleSearch}
+                                onChange={(e) => setPeopleSearch(e.target.value)}
+                                placeholder="Search people you follow (* and ? supported)..."
                                 className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                             />
+
+                            {peopleSearch.trim().length > 0 && (
+                                <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-800/50 bg-[#121218] shadow-xl max-h-72 overflow-y-auto">
+                                    {followingSearchResults.length === 0 ? (
+                                        <p className="px-3 py-3 text-xs text-gray-500">No matching users in your following list</p>
+                                    ) : (
+                                        followingSearchResults.map((item) => (
+                                            <div
+                                                key={item.followingId}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800/40 transition text-left"
+                                            >
+                                                <Avatar
+                                                    src={item.following.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.following.username}`}
+                                                    alt={item.following.displayName || item.following.username}
+                                                    size={34}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <Link
+                                                        href={`/profile/${item.following.username}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="block text-sm text-white truncate hover:text-violet-300 transition"
+                                                    >
+                                                        {item.following.displayName || item.following.username}
+                                                    </Link>
+                                                    <Link
+                                                        href={`/profile/${item.following.username}`}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="block text-xs text-gray-500 truncate hover:text-gray-300 transition"
+                                                    >
+                                                        @{item.following.username}
+                                                    </Link>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStartChatWithFollowing(item)}
+                                                    className="text-xs text-violet-400 hover:text-violet-300 transition"
+                                                >
+                                                    {isStartingChatUserId === item.following.id ? "..." : "Chat"}
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -754,22 +904,17 @@ export default function MessagesPage() {
                             <div className="flex items-center gap-2">
                                 <button className="p-2 hover:bg-gray-800/50 rounded-full transition text-gray-400">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                </button>
-                                <button className="p-2 hover:bg-gray-800/50 rounded-full transition text-gray-400">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                     </svg>
                                 </button>
-                                <button className="p-2 hover:bg-gray-800/50 rounded-full transition text-gray-400">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsInfoSidebarOpen((prev) => !prev)}
+                                    className={`p-2 rounded-full transition ${isInfoSidebarOpen ? "bg-violet-600/20 text-violet-300" : "hover:bg-gray-800/50 text-gray-400"}`}
+                                    aria-label="Toggle conversation profile sidebar"
+                                >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </button>
-                                <button className="p-2 hover:bg-gray-800/50 rounded-full transition text-gray-400">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                                     </svg>
                                 </button>
                             </div>
@@ -869,6 +1014,52 @@ export default function MessagesPage() {
                     </div>
                 )}
             </div>
+
+            {selectedConversation && isInfoSidebarOpen && (
+                <>
+                    <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setIsInfoSidebarOpen(false)} />
+                    <aside className="fixed right-0 top-0 z-50 h-full w-[min(88vw,22rem)] border-l border-gray-800/60 bg-[#121218] p-5 shadow-2xl lg:static lg:z-auto lg:w-80 lg:border-l lg:border-gray-800/50 lg:shadow-none">
+                        <div className="mb-6 flex items-center justify-between">
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-300">User Profile</h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsInfoSidebarOpen(false)}
+                                className="p-2 rounded-full text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 transition"
+                                aria-label="Close profile sidebar"
+                            >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col items-center text-center">
+                            <Avatar src={selectedConversation.avatarUrl} alt={selectedConversation.name} size={88} />
+                            <h4 className="mt-4 text-xl font-semibold text-white">{selectedConversation.otherDisplayName || selectedConversation.name}</h4>
+                            <p className="mt-1 text-sm text-gray-400">@{selectedConversation.otherUsername || selectedConversation.name.toLowerCase().replace(/\s+/g, "")}</p>
+                            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-gray-700/70 px-3 py-1 text-xs text-gray-300">
+                                <span className={`h-2 w-2 rounded-full ${selectedConversation.isOnline ? "bg-green-500" : "bg-gray-500"}`} />
+                                {selectedConversation.isOnline ? "Online" : "Offline"}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 space-y-3 rounded-xl border border-gray-800/70 bg-[#0d0d0f] p-4">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-500">Conversation</span>
+                                <span className="max-w-[11rem] truncate text-gray-200">{selectedConversation.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-500">Last message</span>
+                                <span className="text-gray-300">{formatLastMessageTime(selectedConversation.lastMessageAt)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-500">Unread</span>
+                                <span className="text-violet-300">{selectedConversation.unreadCount}</span>
+                            </div>
+                        </div>
+                    </aside>
+                </>
+            )}
 
             {/* File Upload Modal */}
             <FileUploadModal 

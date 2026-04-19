@@ -10,6 +10,7 @@ import {
   Post,
   BadRequestException,
   Delete,
+  Query,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { UsersService } from "./users.service";
@@ -34,6 +35,38 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getMe(@Req() req: any) {
     return this.usersService.findById(req.user.id || req.user.sub);
+  }
+
+  @Get("search")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Search users by username/display name" })
+  async searchUsers(@Req() req: any, @Query("q") q: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.usersService.searchUsers(q || "", userId);
+  }
+
+  @Get("find")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Find users with pattern matching" })
+  async findUsers(@Req() req: any, @Query("q") q: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.usersService.searchUsers(q || "", userId);
+  }
+
+  @Post(":id/follow")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Follow a user" })
+  async followUser(@Req() req: any, @Param("id") id: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.usersService.followUser(userId, id);
+  }
+
+  @Delete(":id/follow")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Unfollow a user" })
+  async unfollowUser(@Req() req: any, @Param("id") id: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.usersService.unfollowUser(userId, id);
   }
 
   @Get(":username")

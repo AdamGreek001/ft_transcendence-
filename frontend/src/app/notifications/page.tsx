@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { io, type Socket } from "socket.io-client";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -42,16 +43,21 @@ interface NotificationsResponse {
     hasMore: boolean;
 }
 
-const trends = [
-    { category: "Knitting • Trending", tag: "#CableKnitWinter", posts: "12.4k posts" },
-    { category: "Sustainable Fashion • Trending", tag: "Recycled Sari Silk", posts: "8.1k posts" },
-    { category: "Embroidery • Trending", tag: "Botanical Patterns", posts: "4.2k posts" },
-];
+interface UserSuggestion {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    isFollowing: boolean;
+}
 
-const whoToFollow = [
-    { name: "SilkMaven", username: "@silk_expert", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=silk" },
-    { name: "TheLoomLord", username: "@weaving_king", avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=loom" },
-];
+interface FollowingRelation {
+    followingId: string;
+    following: {
+        id: string;
+        username: string;
+    };
+}
 
 function formatTimeAgo(dateString: string): string {
     const date = new Date(dateString);
@@ -153,6 +159,17 @@ export default function NotificationsPage() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<UserSuggestion[]>([]);
+    const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+    const [searchUsersError, setSearchUsersError] = useState<string>("");
+    const [isFollowBusyId, setIsFollowBusyId] = useState<string | null>(null);
+    const [currentUserProfile, setCurrentUserProfile] = useState<{
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+    } | null>(null);
+    const [followingUsernames, setFollowingUsernames] = useState<Set<string>>(new Set());
     const socketRef = useRef<Socket | null>(null);
     const { setUnreadCount, markAsRead: markStoreAsRead, markAllAsRead: markStoreAllAsRead } = useNotificationsStore();
 
@@ -214,6 +231,36 @@ export default function NotificationsPage() {
         fetchNotifications();
     }, [isHydrated, isAuthenticated]);
 
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated) return;
+
+        apiClient
+            .get<{ username: string; displayName: string | null; avatarUrl: string | null }>("/users/me")
+            .then((profile) => setCurrentUserProfile(profile))
+            .catch((error) => console.error("Failed to fetch current user profile:", error));
+    }, [isHydrated, isAuthenticated]);
+
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated || !user?.id) return;
+
+        const fetchFollowing = async () => {
+            try {
+                const data = await apiClient.get<FollowingRelation[]>(`/users/${user.id}/following`);
+                const usernames = new Set(
+                    (data || [])
+                        .map((item) => item.following?.username?.toLowerCase())
+                        .filter((name): name is string => !!name),
+                );
+                setFollowingUsernames(usernames);
+            } catch (error) {
+                console.error("Failed to fetch following list:", error);
+                setFollowingUsernames(new Set());
+            }
+        };
+
+        fetchFollowing();
+    }, [isHydrated, isAuthenticated, user?.id]);
+
     const markAsRead = async (id: string) => {
         try {
             // Update local state optimistically
@@ -248,6 +295,57 @@ export default function NotificationsPage() {
         }
     };
 
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated) return;
+
+        const query = searchQuery.trim();
+        if (query.length < 2) {
+            setSearchResults([]);
+            setSearchUsersError("");
+            return;
+        }
+
+        const timeout = setTimeout(async () => {
+            setIsSearchingUsers(true);
+            setSearchUsersError("");
+            try {
+                const results = await apiClient.get<UserSuggestion[]>(
+                    `/users/find?q=${encodeURIComponent(query)}`,
+                );
+                setSearchResults(results);
+            } catch (error) {
+                console.error("Failed to search users:", error);
+                setSearchResults([]);
+                setSearchUsersError("Search is unavailable right now");
+            } finally {
+                setIsSearchingUsers(false);
+            }
+        }, 250);
+
+        return () => clearTimeout(timeout);
+    }, [searchQuery, isHydrated, isAuthenticated]);
+
+    const toggleFollow = async (target: UserSuggestion) => {
+        setIsFollowBusyId(target.id);
+        try {
+            if (target.isFollowing) {
+                await apiClient.delete(`/users/${target.id}/follow`);
+            } else {
+                await apiClient.post(`/users/${target.id}/follow`);
+            }
+
+            setSearchResults((prev) =>
+                prev.map((u) =>
+                    u.id === target.id ? { ...u, isFollowing: !target.isFollowing } : u,
+                ),
+            );
+        } catch (error) {
+            console.error("Failed to toggle follow:", error);
+        } finally {
+            setIsFollowBusyId(null);
+        }
+    };
+
     // Filter notifications by active tab
     const filteredNotifications = notifications.filter(notif => {
         if (activeTab === "read") {
@@ -258,6 +356,60 @@ export default function NotificationsPage() {
         }
         return true;
     });
+
+    const suggestedUsers = Array.from(
+        notifications.reduce((map, notif) => {
+            const actor = notif.users[0];
+            if (!actor?.username) return map;
+            if (!map.has(actor.username)) {
+                map.set(actor.username, actor);
+            }
+            return map;
+        }, new Map<string, Notification["users"][number]>()),
+    )
+        .map(([, user]) => user)
+        .filter((suggested) => {
+            const username = suggested.username?.toLowerCase();
+            if (!username) return false;
+            if (user?.username && username === user.username.toLowerCase()) return false;
+            return !followingUsernames.has(username);
+        })
+        .slice(0, 5);
+
+    const normalizeAvatarUrl = (avatarUrl?: string | null, username?: string) => {
+        if (!avatarUrl) {
+            return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
+        }
+        if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+            return avatarUrl;
+        }
+
+        const mediaBaseUrl = process.env.NEXT_PUBLIC_MEDIA_URL || "http://localhost:3001/uploads";
+        const cleanBase = mediaBaseUrl.replace(/\/+$/, "");
+
+        if (avatarUrl.startsWith("/uploads/")) {
+            return `${cleanBase}/${avatarUrl.replace(/^\/uploads\//, "")}`;
+        }
+        if (avatarUrl.startsWith("/avatars/")) {
+            return `${cleanBase}/${avatarUrl.replace(/^\//, "")}`;
+        }
+        if (avatarUrl.startsWith("avatars/")) {
+            return `${cleanBase}/${avatarUrl}`;
+        }
+        return `${cleanBase}/${avatarUrl.replace(/^\/+/, "")}`;
+    };
+
+    const currentUserAvatar = normalizeAvatarUrl(
+        currentUserProfile?.avatarUrl || user?.avatarUrl,
+        currentUserProfile?.username || user?.username || "user",
+    );
+
+    const currentUserAlt =
+        currentUserProfile?.displayName ||
+        user?.displayName ||
+        currentUserProfile?.username ||
+        user?.username ||
+        "User";
 
     return (
         <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
@@ -315,12 +467,11 @@ export default function NotificationsPage() {
                                 className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                             />
                         </div>
-                        <button className="p-2 hover:bg-gray-800/50 rounded-full transition text-gray-400 relative">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </button>
-                        <Avatar src="https://api.dicebear.com/7.x/avataaars/svg?seed=alex" alt="User" size={36} />
+                        <Avatar
+                            src={currentUserAvatar}
+                            alt={currentUserAlt}
+                            size={36}
+                        />
                     </div>
                 </div>
 
@@ -416,53 +567,94 @@ export default function NotificationsPage() {
 
             {/* Right Sidebar */}
             <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto">
-                {/* Trending */}
                 <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Trending in Textiles</h3>
-                    <div className="space-y-4">
-                        {trends.map((trend, idx) => (
-                            <div key={idx} className="group cursor-pointer">
-                                <p className="text-xs text-gray-500">{trend.category}</p>
-                                <p className="font-semibold text-white group-hover:text-violet-400 transition">{trend.tag}</p>
-                                <p className="text-xs text-gray-500">{trend.posts}</p>
-                            </div>
-                        ))}
+                    <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
+                    <div className="relative">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search users..."
+                            className="w-full pl-9 pr-3 py-2 bg-[#0d0d0f] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
+                        />
                     </div>
-                    <button className="text-violet-400 text-sm font-medium mt-4 hover:text-violet-300 transition">
-                        Show more
-                    </button>
-                </div>
 
-                {/* Who to follow */}
-                <div className="bg-[#1a1a1f] rounded-2xl p-4">
-                    <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
-                    <div className="space-y-4">
-                        {whoToFollow.map((user, idx) => (
-                            <div key={idx} className="flex items-center gap-3">
-                                <Avatar src={user.avatarUrl} alt={user.name} size={40} />
+                    <div className="mt-3 space-y-3">
+                        {isSearchingUsers && <p className="text-xs text-gray-500">Searching...</p>}
+                        {!isSearchingUsers && !!searchUsersError && (
+                            <p className="text-xs text-red-400">{searchUsersError}</p>
+                        )}
+                        {!isSearchingUsers && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                            <p className="text-xs text-gray-500">No users found</p>
+                        )}
+                        {!isSearchingUsers && searchResults.map((u) => (
+                            <div key={u.id} className="flex items-center gap-3">
+                                <Avatar
+                                    src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
+                                    alt={u.displayName || u.username}
+                                    size={34}
+                                />
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-white truncate">{user.name}</p>
-                                    <p className="text-sm text-gray-500 truncate">{user.username}</p>
+                                    <Link href={`/profile/${u.username}`} className="block text-sm text-white font-medium truncate hover:text-violet-300 transition">
+                                        {u.displayName || u.username}
+                                    </Link>
+                                    <Link href={`/profile/${u.username}`} className="block text-xs text-gray-500 truncate hover:text-gray-300 transition">
+                                        @{u.username}
+                                    </Link>
                                 </div>
-                                <button className="px-4 py-1.5 bg-white text-black rounded-full text-sm font-medium hover:bg-gray-200 transition">
-                                    Follow
+                                <button
+                                    onClick={() => toggleFollow(u)}
+                                    disabled={isFollowBusyId === u.id}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${u.isFollowing ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+                                >
+                                    {isFollowBusyId === u.id ? "..." : u.isFollowing ? "Following" : "Follow"}
                                 </button>
                             </div>
                         ))}
                     </div>
-                    <button className="text-violet-400 text-sm font-medium mt-4 hover:text-violet-300 transition">
-                        Show more
-                    </button>
+                </div>
+
+                {/* Who to follow */}
+                <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
+                    {suggestedUsers.length === 0 ? (
+                        <p className="text-sm text-gray-500">No suggestions yet</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {suggestedUsers.map((suggested) => {
+                                const handle = suggested.username?.startsWith("@")
+                                    ? suggested.username
+                                    : `@${suggested.username}`;
+                                const profilePath = `/profile/${handle.replace(/^@/, "")}`;
+                                return (
+                                    <div key={handle} className="flex items-center gap-3">
+                                        <Avatar src={suggested.avatarUrl} alt={suggested.name} size={40} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-white truncate">{suggested.name}</p>
+                                            <p className="text-sm text-gray-500 truncate">{handle}</p>
+                                        </div>
+                                        <Link
+                                            href={profilePath}
+                                            className="px-3 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:bg-gray-200 transition"
+                                        >
+                                            View
+                                        </Link>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer Links */}
                 <div className="mt-6 text-xs text-gray-600">
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        <a href="#" className="hover:underline">Terms of Service</a>
-                        <a href="#" className="hover:underline">Privacy Policy</a>
+                        <Link href="/terms-of-service" className="hover:underline">Terms of Service</Link>
+                        <Link href="/privacy-policy" className="hover:underline">Privacy Policy</Link>
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-                        <a href="#" className="hover:underline">Cookie Policy</a>
                         <span>© 2024 StitchSocial Inc.</span>
                     </div>
                 </div>
