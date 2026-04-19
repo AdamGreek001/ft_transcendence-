@@ -159,6 +159,8 @@ export default function NotificationsPage() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
+    const [isFindUsersOpen, setIsFindUsersOpen] = useState(false);
+    const [notificationsSearchQuery, setNotificationsSearchQuery] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<UserSuggestion[]>([]);
     const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -346,8 +348,21 @@ export default function NotificationsPage() {
         }
     };
 
-    // Filter notifications by active tab
+    // Filter notifications by tab and search query
     const filteredNotifications = notifications.filter(notif => {
+        const query = notificationsSearchQuery.trim().toLowerCase();
+
+        const matchesSearch = !query || [
+            notif.users[0]?.name || "",
+            notif.users[0]?.username || "",
+            notif.content || "",
+            notif.quotedContent || "",
+        ].some((value) => value.toLowerCase().includes(query));
+
+        if (!matchesSearch) {
+            return false;
+        }
+
         if (activeTab === "read") {
             return notif.read;
         }
@@ -411,6 +426,57 @@ export default function NotificationsPage() {
         user?.username ||
         "User";
 
+    const findUsersPanel = (
+        <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
+            <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search users..."
+                    className="w-full pl-9 pr-3 py-2 bg-[#0d0d0f] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
+                />
+            </div>
+
+            <div className="mt-3 space-y-3">
+                {isSearchingUsers && <p className="text-xs text-gray-500">Searching...</p>}
+                {!isSearchingUsers && !!searchUsersError && (
+                    <p className="text-xs text-red-400">{searchUsersError}</p>
+                )}
+                {!isSearchingUsers && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                    <p className="text-xs text-gray-500">No users found</p>
+                )}
+                {!isSearchingUsers && searchResults.map((u) => (
+                    <div key={u.id} className="flex items-center gap-3">
+                        <Avatar
+                            src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
+                            alt={u.displayName || u.username}
+                            size={34}
+                        />
+                        <div className="flex-1 min-w-0">
+                            <Link href={`/profile/${u.username}`} className="block text-sm text-white font-medium truncate hover:text-violet-300 transition">
+                                {u.displayName || u.username}
+                            </Link>
+                            <Link href={`/profile/${u.username}`} className="block text-xs text-gray-500 truncate hover:text-gray-300 transition">
+                                @{u.username}
+                            </Link>
+                        </div>
+                        <button
+                            onClick={() => toggleFollow(u)}
+                            disabled={isFollowBusyId === u.id}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${u.isFollowing ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+                        >
+                            {isFollowBusyId === u.id ? "..." : u.isFollowing ? "Following" : "Follow"}
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     return (
         <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
             {isNavSidebarOpen && (
@@ -463,10 +529,19 @@ export default function NotificationsPage() {
                             </svg>
                             <input
                                 type="text"
-                                placeholder="Search patterns, yarns, artists..."
+                                value={notificationsSearchQuery}
+                                onChange={(e) => setNotificationsSearchQuery(e.target.value)}
+                                placeholder="Search notifications..."
                                 className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                             />
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsFindUsersOpen(true)}
+                            className="xl:hidden px-3 py-2 rounded-full border border-gray-700 text-xs font-medium text-violet-300 hover:bg-gray-800/50 transition"
+                        >
+                            Find users
+                        </button>
                         <Avatar
                             src={currentUserAvatar}
                             alt={currentUserAlt}
@@ -565,56 +640,36 @@ export default function NotificationsPage() {
                 </div>
             </main>
 
+            {isFindUsersOpen && (
+                <div className="fixed inset-0 z-50 xl:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setIsFindUsersOpen(false)}
+                        className="absolute inset-0 bg-black/60"
+                        aria-label="Close find users panel"
+                    />
+                    <aside className="absolute right-0 top-0 h-full w-[min(90vw,24rem)] overflow-y-auto border-l border-gray-800/60 bg-[#0d0d0f] p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-300">Find users</h2>
+                            <button
+                                type="button"
+                                onClick={() => setIsFindUsersOpen(false)}
+                                className="p-2 rounded-full text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 transition"
+                                aria-label="Close"
+                            >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        {findUsersPanel}
+                    </aside>
+                </div>
+            )}
+
             {/* Right Sidebar */}
             <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto">
-                <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
-                    <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
-                    <div className="relative">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search users..."
-                            className="w-full pl-9 pr-3 py-2 bg-[#0d0d0f] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
-                        />
-                    </div>
-
-                    <div className="mt-3 space-y-3">
-                        {isSearchingUsers && <p className="text-xs text-gray-500">Searching...</p>}
-                        {!isSearchingUsers && !!searchUsersError && (
-                            <p className="text-xs text-red-400">{searchUsersError}</p>
-                        )}
-                        {!isSearchingUsers && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                            <p className="text-xs text-gray-500">No users found</p>
-                        )}
-                        {!isSearchingUsers && searchResults.map((u) => (
-                            <div key={u.id} className="flex items-center gap-3">
-                                <Avatar
-                                    src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
-                                    alt={u.displayName || u.username}
-                                    size={34}
-                                />
-                                <div className="flex-1 min-w-0">
-                                    <Link href={`/profile/${u.username}`} className="block text-sm text-white font-medium truncate hover:text-violet-300 transition">
-                                        {u.displayName || u.username}
-                                    </Link>
-                                    <Link href={`/profile/${u.username}`} className="block text-xs text-gray-500 truncate hover:text-gray-300 transition">
-                                        @{u.username}
-                                    </Link>
-                                </div>
-                                <button
-                                    onClick={() => toggleFollow(u)}
-                                    disabled={isFollowBusyId === u.id}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${u.isFollowing ? "bg-gray-700 text-white hover:bg-gray-600" : "bg-violet-600 text-white hover:bg-violet-700"}`}
-                                >
-                                    {isFollowBusyId === u.id ? "..." : u.isFollowing ? "Following" : "Follow"}
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                {findUsersPanel}
 
                 {/* Who to follow */}
                 <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">

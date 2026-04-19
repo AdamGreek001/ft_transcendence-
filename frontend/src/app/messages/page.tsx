@@ -61,6 +61,17 @@ interface FollowingRelation {
     };
 }
 
+interface FollowerRelation {
+    followerId: string;
+    follower: {
+        id: string;
+        username: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        isOnline?: boolean;
+    };
+}
+
 export default function MessagesPage() {
     const searchParams = useSearchParams();
     const { user, isAuthenticated, isHydrated } = useAuth();
@@ -76,7 +87,7 @@ export default function MessagesPage() {
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const [isInfoSidebarOpen, setIsInfoSidebarOpen] = useState(false);
     const [peopleSearch, setPeopleSearch] = useState("");
-    const [followingUsers, setFollowingUsers] = useState<FollowingRelation[]>([]);
+    const [friendUsers, setFriendUsers] = useState<FollowingRelation[]>([]);
     const [isStartingChatUserId, setIsStartingChatUserId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -229,17 +240,32 @@ export default function MessagesPage() {
     useEffect(() => {
         if (!isHydrated || !isAuthenticated || !user?.id) return;
 
-        const fetchFollowing = async () => {
+        const fetchFriends = async () => {
             try {
-                const data = await apiClient.get<FollowingRelation[]>(`/users/${user.id}/following`);
-                setFollowingUsers(data || []);
+                const [followingData, followersData] = await Promise.all([
+                    apiClient.get<FollowingRelation[]>(`/users/${user.id}/following`),
+                    apiClient.get<FollowerRelation[]>(`/users/${user.id}/followers`),
+                ]);
+
+                const followerIds = new Set(
+                    (followersData || [])
+                        .map((item) => item.follower?.id || item.followerId)
+                        .filter((id): id is string => !!id),
+                );
+
+                const friends = (followingData || []).filter((item) => {
+                    const friendId = item.following?.id || item.followingId;
+                    return !!friendId && followerIds.has(friendId);
+                });
+
+                setFriendUsers(friends);
             } catch (error) {
-                console.error("Failed to fetch following users:", error);
-                setFollowingUsers([]);
+                console.error("Failed to fetch friends list:", error);
+                setFriendUsers([]);
             }
         };
 
-        fetchFollowing();
+        fetchFriends();
     }, [isHydrated, isAuthenticated, user?.id]);
 
     const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -260,7 +286,7 @@ export default function MessagesPage() {
         }
     };
 
-    const followingSearchResults = followingUsers
+    const followingSearchResults = friendUsers
         .filter((item) => {
             const q = peopleSearch.trim();
             if (!q) return false;
@@ -691,7 +717,7 @@ export default function MessagesPage() {
                 );
             }
         }
-        return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{content}</p>;
+        return <p className="max-w-[65ch] text-sm leading-relaxed whitespace-pre-wrap break-all">{content}</p>;
     };
 
     const messageGroups = groupMessagesByDate(messages);
@@ -750,14 +776,14 @@ export default function MessagesPage() {
                                 type="text"
                                 value={peopleSearch}
                                 onChange={(e) => setPeopleSearch(e.target.value)}
-                                placeholder="Search people you follow (* and ? supported)..."
+                                placeholder="Search your friends (* and ? supported)..."
                                 className="w-full pl-10 pr-4 py-2.5 bg-[#1a1a1f] rounded-full text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
                             />
 
                             {peopleSearch.trim().length > 0 && (
                                 <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-800/50 bg-[#121218] shadow-xl max-h-72 overflow-y-auto">
                                     {followingSearchResults.length === 0 ? (
-                                        <p className="px-3 py-3 text-xs text-gray-500">No matching users in your following list</p>
+                                        <p className="px-3 py-3 text-xs text-gray-500">No matching users in your friends list</p>
                                     ) : (
                                         followingSearchResults.map((item) => (
                                             <div
