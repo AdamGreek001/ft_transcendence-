@@ -11,6 +11,7 @@ import {
   BadRequestException,
   Delete,
   Query,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { UsersService } from "./users.service";
@@ -59,17 +60,25 @@ export class UsersController {
     private readonly authService: AuthService,
   ) {}
 
+  private getAuthUserId(req: any): string {
+    const userId = req?.user?.sub || req?.user?.id || req?.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException("Invalid authentication payload");
+    }
+    return userId;
+  }
+
   @Get("me")
   @UseGuards(JwtAuthGuard)
   async getMe(@Req() req: any) {
-    return this.usersService.findById(req.user.id || req.user.sub);
+    return this.usersService.findById(this.getAuthUserId(req));
   }
 
   @Get("search")
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Search users by username/display name" })
   async searchUsers(@Req() req: any, @Query("q") q: string) {
-    const userId = req.user.sub || req.user.id;
+    const userId = this.getAuthUserId(req);
     return this.usersService.searchUsers(q || "", userId);
   }
 
@@ -77,7 +86,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Find users with pattern matching" })
   async findUsers(@Req() req: any, @Query("q") q: string) {
-    const userId = req.user.sub || req.user.id;
+    const userId = this.getAuthUserId(req);
     return this.usersService.searchUsers(q || "", userId);
   }
 
@@ -85,7 +94,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Follow a user" })
   async followUser(@Req() req: any, @Param("id") id: string) {
-    const userId = req.user.sub || req.user.id;
+    const userId = this.getAuthUserId(req);
     return this.usersService.followUser(userId, id);
   }
 
@@ -93,7 +102,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Unfollow a user" })
   async unfollowUser(@Req() req: any, @Param("id") id: string) {
-    const userId = req.user.sub || req.user.id;
+    const userId = this.getAuthUserId(req);
     return this.usersService.unfollowUser(userId, id);
   }
 
@@ -106,10 +115,7 @@ export class UsersController {
   @Patch("settings/update")
   @UseGuards(JwtAuthGuard)
   async update(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
-    const userId = req.user.sub || req.user.id;
-    if (!userId) {
-      throw new BadGatewayException("User ID (sub) is missing from token");
-    }
+    const userId = this.getAuthUserId(req);
     return this.usersService.updateProfile(userId, updateUserDto);
   }
 
@@ -167,7 +173,7 @@ export class UsersController {
 
     const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL}/avatars/${file.filename}`;
     await this.usersService.updateAvatar(
-      req.user.sub || req.user.id,
+      this.getAuthUserId(req),
       avatarUrl,
     );
     return { avatarUrl };
@@ -176,7 +182,7 @@ export class UsersController {
   @Delete("avatar/remove")
   @UseGuards(JwtAuthGuard)
   async removeAvatar(@Req() req: any) {
-    return this.usersService.removeAvatar(req.user.sub || req.user.id);
+    return this.usersService.removeAvatar(this.getAuthUserId(req));
   }
 
   @Post("2fa/generate")
@@ -189,7 +195,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async turnOn2FA(@Req() req: any, @Body("code") code: string) {
     return this.authService.turnOnTwoFactorAuthentication(
-      req.user.sub || req.user.id,
+      this.getAuthUserId(req),
       code,
     );
   }
@@ -198,7 +204,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async turnOff2FA(@Req() req: any) {
     return this.authService.turnOffTwoFactorAuthentication(
-      req.user.sub || req.user.id,
+      this.getAuthUserId(req),
     );
   }
 

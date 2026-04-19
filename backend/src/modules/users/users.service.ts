@@ -18,7 +18,7 @@ export class UsersService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async searchUsers(query: string, currentUserId: string, limit = 10) {
+  async searchUsers(query: string, currentUserId?: string, limit = 10) {
     const trimmed = query.trim().replace(/\s+/g, " ");
     if (!trimmed) return [];
 
@@ -30,8 +30,11 @@ export class UsersService {
 
     const qb = this.userRepo
       .createQueryBuilder("user")
-      .select(["user.id", "user.username", "user.displayName", "user.avatarUrl"])
-      .where("user.id != :currentUserId", { currentUserId });
+      .select(["user.id", "user.username", "user.displayName", "user.avatarUrl"]);
+
+    if (currentUserId) {
+      qb.where("user.id != :currentUserId", { currentUserId });
+    }
 
     // Pattern matching: support * and ? wildcards and match every token.
     tokens.forEach((token, idx) => {
@@ -67,10 +70,12 @@ export class UsersService {
 
     const users = await qb.getMany();
 
-    const following = await this.followRepo.find({
-      where: { followerId: currentUserId },
-      select: ["followingId"],
-    });
+    const following = currentUserId
+      ? await this.followRepo.find({
+          where: { followerId: currentUserId },
+          select: ["followingId"],
+        })
+      : [];
     const followingSet = new Set(following.map((f) => f.followingId));
 
     return users.map((u) => ({
