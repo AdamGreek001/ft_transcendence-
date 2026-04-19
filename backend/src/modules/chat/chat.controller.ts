@@ -10,6 +10,7 @@ import {
     Req,
     UseInterceptors,
     UploadedFile,
+    BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiConsumes } from "@nestjs/swagger";
@@ -17,6 +18,14 @@ import { ChatService } from "./chat.service";
 import { MediaService } from "../media/media.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { SendMessageDto, GetMessagesQueryDto } from "./dto";
+
+// File size limit for chat uploads
+const MAX_CHAT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+// File filter for chat uploads (allow any file type)
+const chatFileFilter = (req: any, file: Express.Multer.File, callback: any) => {
+    callback(null, true);
+};
 
 @ApiTags("Chat")
 @Controller("chat")
@@ -85,8 +94,21 @@ export class ChatController {
     @Post("upload")
     @ApiOperation({ summary: "Upload file for chat" })
     @ApiConsumes("multipart/form-data")
-    @UseInterceptors(FileInterceptor("file"))
+    @UseInterceptors(
+        FileInterceptor("file", {
+            fileFilter: chatFileFilter,
+            limits: { fileSize: MAX_CHAT_FILE_SIZE },
+        })
+    )
     async uploadFile(@UploadedFile() file: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException("No file provided");
+        }
+        if (file.size > MAX_CHAT_FILE_SIZE) {
+            throw new BadRequestException(
+                `File size exceeds maximum limit of 50MB. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+            );
+        }
         return this.mediaService.upload("chat", file);
     }
 }
