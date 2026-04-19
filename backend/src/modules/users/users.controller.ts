@@ -18,10 +18,38 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UseInterceptors, UploadedFile } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
+import { diskStorage, memoryStorage } from "multer";
 import { existsSync, mkdirSync } from "fs";
 import { extname } from "path";
 import { AuthService } from "../auth/auth.service";
+
+// Allowed image types for avatars
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+// Maximum avatar file size: 5MB
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+
+// File filter for avatar uploads
+const imageFileFilter = (
+  req: any,
+  file: Express.Multer.File,
+  callback: any,
+) => {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+    return callback(
+      new BadRequestException(
+        `Invalid file type. Allowed types: ${ALLOWED_IMAGE_TYPES.join(", ")}`,
+      ),
+      false,
+    );
+  }
+  callback(null, true);
+};
 
 @ApiTags("Users")
 @Controller("users")
@@ -100,9 +128,23 @@ export class UsersController {
         filename: (req, file, callback) => {
           const uniqueSuffix =
             Date.now() + "-" + Math.round(Math.random() * 1e9);
-          callback(null, `${uniqueSuffix}${extname(file.originalname)}`);
+          const ext =
+            file.mimetype === "image/jpeg"
+              ? ".jpg"
+              : file.mimetype === "image/png"
+                ? ".png"
+                : file.mimetype === "image/webp"
+                  ? ".webp"
+                  : file.mimetype === "image/gif"
+                    ? ".gif"
+                    : ".jpg";
+          callback(null, `${uniqueSuffix}${ext}`);
         },
       }),
+      fileFilter: imageFileFilter,
+      limits: {
+        fileSize: MAX_AVATAR_SIZE,
+      },
     }),
   )
   async uploadAvatar(
@@ -115,6 +157,14 @@ export class UsersController {
         "File not found in the request. Check if the field name is 'file'",
       );
     }
+
+    // Validate file size client-side as well (in case limits are bypassed)
+    if (file.size > MAX_AVATAR_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds maximum limit of 5MB. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      );
+    }
+
     const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL}/avatars/${file.filename}`;
     await this.usersService.updateAvatar(
       req.user.sub || req.user.id,
