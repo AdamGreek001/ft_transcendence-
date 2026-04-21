@@ -65,3 +65,33 @@ export const apiClient = {
     return data;
   },
 };
+
+export const api = {
+  posts: {
+    getFeed: (page = 1, limit = 20) =>
+      apiClient.get<any>(`/posts/feed?page=${page}&limit=${limit}`),
+    create: (content: string, imageUrl?: string) =>
+      apiClient.post<any>("/posts", { content, imageUrl }),
+    like: (postId: string) =>
+      apiClient.post<{ liked: boolean }>(`/posts/${postId}/like`),
+    delete: (postId: string) =>
+      apiClient.delete<void>(`/posts/${postId}`),
+  },
+
+  comments: {
+    getAll: (postId: string, page = 1) =>
+      apiClient.get<any>(`/posts/${postId}/comments?page=${page}`),
+    create: (postId: string, content: string) =>
+      apiClient.post<any>(`/posts/${postId}/comments`, { content }),
+  },
+
+  media: {
+  uploadPost: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.post<{ url: string }>("/media/upload/post", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+},
+};

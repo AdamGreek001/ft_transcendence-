@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
+import { api } from "@/lib/api";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
 // ============================================================
@@ -23,22 +24,25 @@ interface Comment {
 }
 
 interface Post {
-  id: number;
-  username: string;
-  image_profile: string;
-  createdAt: Date;
-  location: string;
-  content?: string;
-  image?: string;
-  likes: number;
-  comments: number;
+  id: string;
+  content: string;
+  imageUrl: string | null;
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+  _count?: {
+    likes: number;
+    comments: number;
+  };
   shares: number;
-  priority?: boolean;
-  sharedBy?: {          // ← if present = this is a shared post
+  sharedBy?: {
     username: string;
     image_profile: string;
   };
-  originalPostId?: number;  // ← to track and unshare
+  originalPostId?: string;
 }
 
 // ============================================================
@@ -228,7 +232,7 @@ function CommentItem({ comment, onReply, isReply = false }: {
 // COMMENT SECTION
 // ============================================================
 
-function CommentSection({ postId }: { postId: number }) {
+function CommentSection({ postId }: { postId: string }) {
   const [commentsList, setCommentsList] = useState<Comment[]>(MOCK_COMMENTS);
   const [commentText, setCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState<{ name: string; commentId: number } | null>(null);
@@ -378,22 +382,30 @@ const MOCK_COMMENTS: Comment[] = [
   { id: 4, name: "Liam Carter", text: "This is pure art 🔥", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), avatar: null },
 ];
 
-function PostCard({ id, username, image_profile, createdAt, location, content, image, likes, comments, shares, priority = false, sharedBy, originalPostId, onShare, onUnshare, sharedPostId }: PostCardProps) {
+function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId }: Post & {
+  onShare: (post: Post) => void;
+  onUnshare: (id: string) => void;
+  sharedPostId?: string;
+}) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [shareCount, setShareCount] = useState(shares ?? 0);
+  const [shared, setShared] = useState(false);
   const [hidden, setHidden] = useState(false);
 
-  const [showComments, setShowComments] = useState(false);
-  const [shareCount, setShareCount] = useState(shares);
-  const [shared, setShared] = useState(false);
-  const relativeTime = useRelativeTime(createdAt);
-  
-  if (hidden) return null;
+  const relativeTime = useRelativeTime(new Date(createdAt));
 
   function handleLike() {
     setLiked(!liked);
-    // TODO: call POST /posts/:id/like or DELETE /posts/:id/like
+    // TODO: api.posts.like(id)
   }
+
+  function handleSave() {
+    setSaved(!saved);
+    // TODO: api.posts.save(id)
+  }
+
   function handleShare() {
     if (shared) {
       setShareCount(shareCount - 1);
@@ -403,60 +415,54 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
       setShareCount(shareCount + 1);
       setShared(true);
       onShare({
-        id: Date.now(),
-        username,
-        image_profile,
-        createdAt,
-        location,
+        id: Date.now().toString(),
         content,
-        image,
-        likes: 0,
-        comments: 0,
+        imageUrl,
+        createdAt,
+        author,
+        _count: { likes: 0, comments: 0 },
         shares: 0,
         sharedBy: {
-          username: "@m.e.d_a.m.i.n.e",       // TODO: replace with logged in user
-          image_profile: "/images/2.jpeg",      // TODO: replace with logged in user
+          username: "@m.e.d_a.m.i.n.e",
+          image_profile: "/images/2.jpeg",
         },
         originalPostId: id,
       });
     }
-    // TODO: call POST /posts/:id/share or DELETE /posts/:id/share
+    // TODO: api.posts.share(id)
   }
-  function handleSave() {
-    setSaved(!saved);
-    // TODO: call POST /posts/:id/save or DELETE /posts/:id/save
-  }
+
+  if (hidden) return null;
 
   return (
     <article className="bg-[#1a1a1a] rounded-2xl border border-slate-800 overflow-hidden shadow-lg">
+
       {/* Shared by banner */}
       {sharedBy && (
-      <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
-        <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
+        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
+          <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
           <span>
             <span className="text-[#895af6] font-semibold">{sharedBy.username}</span>
-              {" "}shared this
-            </span>
-      </div>
-)}
+            {" "}shared this
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-full overflow-hidden shrink-0">
             <Image
-              src={image_profile}
-              alt={`${username}'s profile picture`}
+              src={author.avatarUrl ?? "/images/default.jpeg"}
+              alt={`${author.username}'s profile picture`}
               width={40}
               height={40}
               className="rounded-full"
-              priority={priority}
             />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-sm text-white">{username}</span>
-            <span className="text-xs text-slate-500">
-              {relativeTime} {location ? `· ${location}` : ""}
-            </span>
+            <span className="font-bold text-sm text-white">{author.username}</span>
+            <span className="text-xs text-slate-500">{relativeTime}</span>
           </div>
         </div>
         <button
@@ -475,15 +481,14 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
       )}
 
       {/* Image content */}
-      {image && (
+      {imageUrl && (
         <div className="w-full overflow-hidden">
           <Image
-            src={image}
+            src={imageUrl}
             alt="Post image"
             width={600}
             height={400}
             style={{ width: "100%", height: "auto" }}
-            priority={priority}
           />
         </div>
       )}
@@ -498,13 +503,15 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
             className="flex items-center gap-2 transition-colors cursor-pointer"
             style={{ color: liked ? "#895af6" : "#94a3b8" }}
           >
-            <img
-              src="/icons/like.svg"
-              alt="like"
-              className="w-5 h-5"
-              style={{ filter: liked ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
-            />
-            <span className="text-xs font-bold">{likes}</span>
+            <span className="like-icon">
+              <img
+                src="/icons/like.svg"
+                alt="like"
+                className="w-5 h-5"
+                style={{ filter: liked ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
+              />
+            </span>
+            <span className="text-xs font-bold">{_count?.likes}</span>
           </button>
 
           {/* Comment */}
@@ -519,7 +526,7 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
               className="w-5 h-5"
               style={{ filter: showComments ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
             />
-            <span className="text-xs font-bold">{comments}</span>
+            <span className="text-xs font-bold">{_count?.comments}</span>
           </button>
 
           {/* Share */}
@@ -529,10 +536,10 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
             style={{ color: shared ? "#895af6" : "#94a3b8" }}
           >
             <img
-             src="/icons/share.svg"
-             alt="share"
-             className="w-5 h-5"
-             style={{ filter: shared ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
+              src="/icons/share.svg"
+              alt="share"
+              className="w-5 h-5"
+              style={{ filter: shared ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
             />
             <span className="text-xs font-bold">{shareCount}</span>
           </button>
@@ -567,38 +574,30 @@ function PostCard({ id, username, image_profile, createdAt, location, content, i
 
 const MOCK_POSTS: Post[] = [
   {
-    id: 1,
-    username: "@m.e.d_a.m.i.n.e",
-    image_profile: "/images/2.jpeg",
-    createdAt: new Date(new Date(Date.now() - 15 * 60 * 1000)), // 15 minutes ago
-    location: "Vancouver, BC",
+    id: "1",
     content: "Just finished this summer cardigan! #knitting #handmade #summerstyle",
-    image: "/images/tabi3a.jpeg",
-    likes: 1240,
-    comments: 84,
+    imageUrl: "/images/tabi3a.jpeg",
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    author: { id: "u1", username: "@m.e.d_a.m.i.n.e", avatarUrl: "/images/2.jpeg" },
+    _count: { likes: 1240, comments: 84 },
     shares: 12,
-    priority: true,
   },
   {
-    id: 2,
-    username: "@re.m.a",
-    image_profile: "/images/2.jpeg",
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-    location: "Montreal, QC",
+    id: "2",
     content: "Had an amazing day exploring the city! #cityadventures #foodie",
-    image: "/images/2.jpeg",
-    likes: 980,
-    comments: 50,
+    imageUrl: "/images/2.jpeg",
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    author: { id: "u2", username: "@re.m.a", avatarUrl: "/images/2.jpeg" },
+    _count: { likes: 980, comments: 50 },
     shares: 8,
   },
   {
-    id: 3,
-    username: "@s.a.m.i",
-    image_profile: "/images/2.jpeg",
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
-    location: "Toronto, ON",
-    likes: 1500,
-    comments: 120,
+    id: "3",
+    content: "Toronto vibes today 🍁",
+    imageUrl: null,
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    author: { id: "u3", username: "@s.a.m.i", avatarUrl: "/images/2.jpeg" },
+    _count: { likes: 1500, comments: 120 },
     shares: 20,
   },
 ];
@@ -608,23 +607,49 @@ const MOCK_POSTS: Post[] = [
 // ============================================================
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
-  const [sharedPostIds, setSharedPostIds] = useState<Record<number, number>>({});
-  function handleAddPost(text: string, image?: File) {
-  const newPost: Post = {
-    id: Date.now(),
-    username: "@m.e.d_a.m.i.n.e",
-    image_profile: "/images/2.jpeg",
-    createdAt: new Date(),   // ← exact moment of posting
-    location: "",
-    content: text,
-    image: image ? URL.createObjectURL(image) : undefined,
-    likes: 0,
-    comments: 0,
-    shares: 0,
-  };
-  setPosts([newPost, ...posts]);
+  const [posts, setPosts] = useState<Post[]>([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
+const [sharedPostIds, setSharedPostIds] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+  async function loadFeed() {
+    try {
+      setLoading(true);
+      const res = await api.posts.getFeed();
+console.log("First post:", JSON.stringify(res.data?.[0]));
+setPosts(res.data);
+    } catch (err: any) {
+      console.error("Feed error:", err);
+      setError(err.message || "Failed to load feed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadFeed();
+
+  // auto refresh every 30 seconds
+  const interval = setInterval(loadFeed, 30000);
+  return () => clearInterval(interval);
+}, []);
+
+  async function handleAddPost(text: string, image?: File) {
+  try {
+    let imageUrl: string | undefined;
+
+    if (image) {
+      const uploaded = await api.media.uploadPost(image);
+      imageUrl = uploaded.url;
+    }
+
+    const created = await api.posts.create(text, imageUrl);
+    setPosts((prev) => [created, ...prev]);
+  } catch (err: any) {
+    console.error("Create post error:", err);
+  }
 }
+
 function handleShare(sharedPost: Post) {
   setPosts((prev) => [sharedPost, ...prev]);
   setSharedPostIds((prev) => ({
@@ -633,12 +658,12 @@ function handleShare(sharedPost: Post) {
   }));
 }
 
-function handleUnshare(sharedPostId: number) {
+function handleUnshare(sharedPostId: string) {
   setPosts((prev) => prev.filter((p) => p.id !== sharedPostId));
   setSharedPostIds((prev) => {
     const updated = { ...prev };
-    const key = Object.keys(updated).find((k) => updated[+k] === sharedPostId);
-    if (key) delete updated[+key];
+    const key = Object.keys(updated).find((k) => updated[k as keyof typeof updated] === sharedPostId);
+    if (key) delete updated[key as keyof typeof updated];
     return updated;
   });
 }
