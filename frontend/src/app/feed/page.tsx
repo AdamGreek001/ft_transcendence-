@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api, apiClient } from "@/lib/api";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
 // ============================================================
@@ -43,6 +43,39 @@ interface Post {
     image_profile: string;
   };
   originalPostId?: string;
+}
+
+
+
+// ============================================================
+// AVATAR URL NORMALIZER (same as AppSidebar)
+// ============================================================
+
+function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
+  if (!avatarUrl) {
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
+  }
+  if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+    return avatarUrl;
+  }
+
+   if (avatarUrl.startsWith("/images/")) {
+    return avatarUrl;
+  }
+  
+  const mediaBaseUrl = process.env.NEXT_PUBLIC_MEDIA_URL || "http://localhost:8080/uploads";
+  const cleanBase = mediaBaseUrl.replace(/\/+$/, "");
+
+  if (avatarUrl.startsWith("/uploads/")) {
+    return avatarUrl;
+  }
+  if (avatarUrl.startsWith("/avatars/")) {
+    return avatarUrl;
+  }
+  if (avatarUrl.startsWith("avatars/")) {
+    return `/${avatarUrl}`;
+  }
+  return `/uploads/${avatarUrl.replace(/^\/+/, "")}`;
 }
 
 // ============================================================
@@ -119,7 +152,13 @@ function CreatePost({ profile_image, onSubmit }: CreatePostProps) {
     <section className="bg-[#1a1a1a] rounded-2xl border border-slate-800 shadow-lg p-4 flex flex-col gap-4">
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
-          <Image src={profile_image} alt="Your profile picture" width={40} height={40} className="rounded-full" />
+          <Image 
+            src={normalizeAvatarUrl(profile_image)} 
+            alt="Your profile picture" 
+            width={40} 
+            height={40} 
+            className="rounded-full object-cover"
+          />  
         </div>
         <textarea
           className="w-full bg-transparent border-none focus:ring-0 text-slate-100 placeholder-slate-500 resize-none py-2 text-sm outline-none"
@@ -453,11 +492,11 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sh
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-full overflow-hidden shrink-0">
             <Image
-              src={author.avatarUrl ?? "/images/default.jpeg"}
+              src={normalizeAvatarUrl(author.avatarUrl, author.username)}
               alt={`${author.username}'s profile picture`}
               width={40}
               height={40}
-              className="rounded-full"
+              className="rounded-full object-cover"
             />
           </div>
           <div className="flex flex-col">
@@ -482,9 +521,10 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sh
 
       {/* Image content */}
       {imageUrl && (
+        console.log("Rendering image with URL:", imageUrl),
         <div className="w-full overflow-hidden">
           <Image
-            src={imageUrl}
+            src={normalizeAvatarUrl(imageUrl)}
             alt="Post image"
             width={600}
             height={400}
@@ -608,10 +648,13 @@ const MOCK_POSTS: Post[] = [
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string | null>(null);
-const [sharedPostIds, setSharedPostIds] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sharedPostIds, setSharedPostIds] = useState<Record<string, string>>({});
+  const [currentUser, setCurrentUser] = useState<{ avatarUrl: string | null } | null>(null);
 
+  useState<Record<string, string>>({});
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
   useEffect(() => {
   async function loadFeed() {
     try {
@@ -626,13 +669,20 @@ setPosts(res.data);
       setLoading(false);
     }
   }
-
-  loadFeed();
-
-  // auto refresh every 30 seconds
-  const interval = setInterval(loadFeed, 30000);
-  return () => clearInterval(interval);
-}, []);
+  async function fetchCurrentUser() {
+      try {
+        const user = await apiClient.get<{ avatarUrl: string | null }>("/users/me");
+        setCurrentUser(user); // Store entire user object
+      } catch (err) {
+        console.error("Failed to fetch current user:", err);
+      }
+    }
+  const interval = setInterval(() => {
+      loadFeed();
+      fetchCurrentUser();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleAddPost(text: string, image?: File) {
   try {
@@ -674,8 +724,10 @@ function handleUnshare(sharedPostId: string) {
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent">
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
-            <CreatePost profile_image="/images/2.jpeg" onSubmit={handleAddPost} />
-
+            <CreatePost 
+              profile_image={currentUser?.avatarUrl ?? "/images/2.jpeg"} 
+              onSubmit={handleAddPost} 
+            />
             {posts.map((post) => (
               <PostCard
                 key={post.id}
