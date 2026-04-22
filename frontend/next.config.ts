@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
                 hostname: "backend",
                 port: "3001",
             },
+            {
+                protocol: "https",
+                hostname: "api.dicebear.com",
+            }
         ],
     },
     webpack(config) {

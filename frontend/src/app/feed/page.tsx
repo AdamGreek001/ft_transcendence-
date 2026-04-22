@@ -84,6 +84,10 @@ function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): strin
 
 interface CreatePostProps {
   profile_image: string;
+  currentUser?: {
+    avatarUrl: string | null;
+    username: string;
+  };
   onSubmit: (text: string, image?: File) => void;
 }
 
@@ -120,12 +124,20 @@ function useRelativeTime(date: Date): string {
 }
 
 
-function CreatePost({ profile_image, onSubmit }: CreatePostProps) {
+function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canPost = text.trim().length > 0 || image !== null;
+  // const normalizedAvatar = normalizeAvatarUrl(
+  //   currentUser?.avatarUrl ?? profile_image,
+  //   currentUser?.username
+  // );
+  const avatarUrl = normalizeAvatarUrl(
+    currentUser?.avatarUrl,
+    currentUser?.username
+  );
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -153,7 +165,7 @@ function CreatePost({ profile_image, onSubmit }: CreatePostProps) {
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
           <Image 
-            src={normalizeAvatarUrl(profile_image)} 
+            src={avatarUrl}
             alt="Your profile picture" 
             width={40} 
             height={40} 
@@ -651,7 +663,7 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sharedPostIds, setSharedPostIds] = useState<Record<string, string>>({});
-  const [currentUser, setCurrentUser] = useState<{ avatarUrl: string | null } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ avatarUrl: string | null; username: string } | null>(null);
 
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
@@ -660,8 +672,8 @@ export default function FeedPage() {
     try {
       setLoading(true);
       const res = await api.posts.getFeed();
-console.log("First post:", JSON.stringify(res.data?.[0]));
-setPosts(res.data);
+      console.log("First post:", JSON.stringify(res.data?.[0]));
+      setPosts(res.data);
     } catch (err: any) {
       console.error("Feed error:", err);
       setError(err.message || "Failed to load feed");
@@ -669,20 +681,29 @@ setPosts(res.data);
       setLoading(false);
     }
   }
+
   async function fetchCurrentUser() {
-      try {
-        const user = await apiClient.get<{ avatarUrl: string | null }>("/users/me");
-        setCurrentUser(user); // Store entire user object
-      } catch (err) {
-        console.error("Failed to fetch current user:", err);
-      }
+    try {
+      const user = await apiClient.get<{ avatarUrl: string | null; username: string }>("/users/me");
+      setCurrentUser(user);
+    } catch (err) {
+      console.error("Failed to fetch current user:", err);
     }
+  }
+
+  // 🚀 run both at the same time (faster)
+  async function init() {
+    await Promise.all([loadFeed(), fetchCurrentUser()]);
+  }
+
+  init();
+
   const interval = setInterval(() => {
-      loadFeed();
-      fetchCurrentUser();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    Promise.all([loadFeed(), fetchCurrentUser()]);
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, []);
 
   async function handleAddPost(text: string, image?: File) {
   try {
@@ -724,10 +745,13 @@ function handleUnshare(sharedPostId: string) {
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent">
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
-            <CreatePost 
-              profile_image={currentUser?.avatarUrl ?? "/images/2.jpeg"} 
-              onSubmit={handleAddPost} 
-            />
+            {currentUser && (
+              <CreatePost
+                profile_image={normalizeAvatarUrl(currentUser.avatarUrl)}
+                currentUser={currentUser}
+                onSubmit={handleAddPost}
+              />
+            )}
             {posts.map((post) => (
               <PostCard
                 key={post.id}
