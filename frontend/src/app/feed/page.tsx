@@ -37,6 +37,7 @@ interface Post {
     likes: number;
     comments: number;
   };
+  isLikedByMe?: boolean;
   shares: number;
   sharedBy?: {
     username: string;
@@ -130,10 +131,7 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canPost = text.trim().length > 0 || image !== null;
-  // const normalizedAvatar = normalizeAvatarUrl(
-  //   currentUser?.avatarUrl ?? profile_image,
-  //   currentUser?.username
-  // );
+ 
   const avatarUrl = normalizeAvatarUrl(
     currentUser?.avatarUrl,
     currentUser?.username
@@ -433,12 +431,13 @@ const MOCK_COMMENTS: Comment[] = [
   { id: 4, name: "Liam Carter", text: "This is pure art 🔥", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), avatar: null },
 ];
 
-function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId }: Post & {
+function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByMe, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId }: Post & {
   onShare: (post: Post) => void;
   onUnshare: (id: string) => void;
   sharedPostId?: string;
 }) {
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(isLikedByMe ?? false);
+  const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [shareCount, setShareCount] = useState(shares ?? 0);
@@ -447,10 +446,20 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sh
 
   const relativeTime = useRelativeTime(new Date(createdAt));
 
-  function handleLike() {
-    setLiked(!liked);
-    // TODO: api.posts.like(id)
+  async function handleLike() {
+  // optimistic update — change UI immediately
+  setLiked(!liked);
+  setLikeCount(liked ? likeCount - 1 : likeCount + 1);
+
+  try {
+    await api.posts.like(id);
+  } catch (err) {
+    // revert if API fails
+    setLiked(liked);
+    setLikeCount(likeCount);
+    console.error("Like error:", err);
   }
+}
 
   function handleSave() {
     setSaved(!saved);
@@ -563,7 +572,7 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, shares, sh
                 style={{ filter: liked ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
               />
             </span>
-            <span className="text-xs font-bold">{_count?.likes}</span>
+            <span className="text-xs font-bold">{likeCount}</span>
           </button>
 
           {/* Comment */}
@@ -667,7 +676,7 @@ export default function FeedPage() {
 
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
-  useEffect(() => {
+
   async function loadFeed() {
     try {
       setLoading(true);
@@ -691,17 +700,17 @@ export default function FeedPage() {
     }
   }
 
-  // 🚀 run both at the same time (faster)
+  useEffect(() => {
   async function init() {
+    setLoading(true);
     await Promise.all([loadFeed(), fetchCurrentUser()]);
+    setLoading(false);
   }
-
   init();
 
   const interval = setInterval(() => {
     Promise.all([loadFeed(), fetchCurrentUser()]);
   }, 30000);
-
   return () => clearInterval(interval);
 }, []);
 

@@ -38,24 +38,39 @@ export class PostsService {
     }
 
     async getFeed(userId: string, page: number, limit: number) {
-        const skip = (page - 1) * limit;
-        const follows = await this.followRepo.find({
-            where: { followerId: userId },
-            select: ["followingId"],
-        });
-        const followingIds = follows.map((f) => f.followingId);
-        followingIds.push(userId);
+    const skip = (page - 1) * limit;
+    const follows = await this.followRepo.find({
+        where: { followerId: userId },
+        select: ["followingId"],
+    });
+    const followingIds = follows.map((f) => f.followingId);
+    followingIds.push(userId);
 
-        const [data, total] = await this.postRepo.findAndCount({
-            where: { authorId: In(followingIds) },
-            order: { createdAt: "DESC" },
-            skip,
-            take: limit,
-            relations: ["author"],
-        });
+    const [posts, total] = await this.postRepo.findAndCount({
+        where: { authorId: In(followingIds) },
+        order: { createdAt: "DESC" },
+        skip,
+        take: limit,
+        relations: ["author"],
+    });
 
-        return { data, total, page, limit, hasMore: skip + data.length < total };
-    }
+    const data = await Promise.all(
+        posts.map(async (post) => {
+            const [likesCount, commentsCount, userLike] = await Promise.all([
+                this.likeRepo.count({ where: { postId: post.id } }),
+                this.postRepo.manager.count("comments", { where: { postId: post.id } }),
+                this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+            ]);
+            return {
+                ...post,
+                _count: { likes: likesCount, comments: commentsCount },
+                isLikedByMe: !!userLike,
+            };
+        })
+    );
+
+    return { data, total, page, limit, hasMore: skip + data.length < total };
+}
 
     async toggleLike(userId: string, postId: string) {
         const existing = await this.likeRepo.findOne({ where: { userId, postId } });
@@ -68,7 +83,6 @@ export class PostsService {
         const like = this.likeRepo.create({ userId, postId });
         await this.likeRepo.save(like);
 
-        // Send notification to post author
         const post = await this.postRepo.findOne({ where: { id: postId } });
         if (post && post.authorId !== userId) {
             await this.notificationsService.notifyLike(post.authorId, userId, postId);
