@@ -5,12 +5,13 @@ import { PostsService } from "./posts.service";
 import { Post } from "../../entities/post.entity";
 import { Like } from "../../entities/like.entity";
 import { Follow } from "../../entities/follow.entity";
+import { Share } from "../../entities/share.entity";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Post, Like, Follow]),
+            TypeOrmModule.forFeature([Post, Like, Follow, Share]),
         AuthModule,
         forwardRef(() => NotificationsModule),
     ],

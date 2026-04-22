@@ -39,13 +39,14 @@ interface Post {
   _count?: {
     likes: number;
     comments: number;
+    shares: number;
   };
   isLikedByMe?: boolean;
-  shares: number;
+  isSharedByMe?: boolean;
   sharedBy?: {
     username: string;
-    image_profile: string;
-  };
+    avatarUrl: string | null;
+  } | null;
   originalPostId?: string;
 }
 
@@ -133,7 +134,9 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_CONTENT_LENGTH = 2000;
   const canPost = text.trim().length > 0 || image !== null;
+  const isContentTooLong = text.length > MAX_CONTENT_LENGTH;
  
   const avatarUrl = normalizeAvatarUrl(
     currentUser?.avatarUrl,
@@ -154,6 +157,7 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
 
   function handlePost() {
   if (!canPost) return;
+    console.log("Posting:", text, image);
   onSubmit(text, image ?? undefined);
   setText("");
   setImage(null);
@@ -447,18 +451,16 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
 // POST CARD
 // ============================================================
 
-function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByMe, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId, currentUser }: Post & {
-  onShare: (post: Post) => void;
-  onUnshare: (id: string) => void;
-  sharedPostId?: string;
-  currentUser?: { avatarUrl: string | null; username: string } | null;
+function PostCard({ id, content, imageUrl, createdAt, author, _count,
+  isLikedByMe, isSharedByMe, sharedBy, currentUser }: Post & {
+  currentUser: any;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
   const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [shareCount, setShareCount] = useState(shares ?? 0);
-  const [shared, setShared] = useState(false);
+  const [shared, setShared] = useState(isSharedByMe ?? false);
+  const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
   const [hidden, setHidden] = useState(false);
 
   const relativeTime = useRelativeTime(new Date(createdAt));
@@ -483,31 +485,21 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByM
     // TODO: api.posts.save(id)
   }
 
-  function handleShare() {
-    if (shared) {
-      setShareCount(shareCount - 1);
-      setShared(false);
-      if (sharedPostId) onUnshare(sharedPostId);
-    } else {
-      setShareCount(shareCount + 1);
-      setShared(true);
-      onShare({
-        id: Date.now().toString(),
-        content,
-        imageUrl,
-        createdAt,
-        author,
-        _count: { likes: 0, comments: 0 },
-        shares: 0,
-        sharedBy: {
-          username: "@m.e.d_a.m.i.n.e",
-          image_profile: "/images/2.jpeg",
-        },
-        originalPostId: id,
-      });
-    }
-    // TODO: api.posts.share(id)
+  async function handleShare() {
+  // optimistic update
+  const wasShared = shared;
+  setShared(!wasShared);
+  setShareCount(wasShared ? shareCount - 1 : shareCount + 1);
+
+  try {
+    await api.posts.share(id);
+  } catch (err) {
+    // revert on fail
+    setShared(wasShared);
+    setShareCount(shareCount);
+    console.error("Share error:", err);
   }
+}
 
   if (hidden) return null;
 
@@ -516,14 +508,14 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByM
 
       {/* Shared by banner */}
       {sharedBy && (
-        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
-          <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
-          <span>
-            <span className="text-[#895af6] font-semibold">{sharedBy.username}</span>
-            {" "}shared this
-          </span>
-        </div>
-      )}
+  <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
+    <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
+    <span>
+      <span className="text-[#895af6] font-semibold">{sharedBy.username}</span>
+      {" "}shared this
+    </span>
+  </div>
+)}
 
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
@@ -646,39 +638,6 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByM
   );
 }
 
-// ============================================================
-// MOCK POSTS — replace with API call later
-// ============================================================
-
-const MOCK_POSTS: Post[] = [
-  {
-    id: "1",
-    content: "Just finished this summer cardigan! #knitting #handmade #summerstyle",
-    imageUrl: "/images/tabi3a.jpeg",
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    author: { id: "u1", username: "@m.e.d_a.m.i.n.e", avatarUrl: "/images/2.jpeg" },
-    _count: { likes: 1240, comments: 84 },
-    shares: 12,
-  },
-  {
-    id: "2",
-    content: "Had an amazing day exploring the city! #cityadventures #foodie",
-    imageUrl: "/images/2.jpeg",
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    author: { id: "u2", username: "@re.m.a", avatarUrl: "/images/2.jpeg" },
-    _count: { likes: 980, comments: 50 },
-    shares: 8,
-  },
-  {
-    id: "3",
-    content: "Toronto vibes today 🍁",
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    author: { id: "u3", username: "@s.a.m.i", avatarUrl: "/images/2.jpeg" },
-    _count: { likes: 1500, comments: 120 },
-    shares: 20,
-  },
-];
 
 // ============================================================
 // FEED PAGE
@@ -688,8 +647,7 @@ export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sharedPostIds, setSharedPostIds] = useState<Record<string, string>>({});
-  const [currentUser, setCurrentUser] = useState<{ avatarUrl: string | null; username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
@@ -733,37 +691,15 @@ export default function FeedPage() {
 
   async function handleAddPost(text: string, image?: File) {
   try {
-    let imageUrl: string | undefined;
-
-    if (image) {
-      const uploaded = await api.media.uploadPost(image);
-      imageUrl = uploaded.url;
-    }
-
-    const created = await api.posts.create(text, imageUrl);
+    console.log("Sending to API:", text);
+    const created = await api.posts.create(text, undefined);
+    console.log("Created post:", created);
     setPosts((prev) => [created, ...prev]);
   } catch (err: any) {
     console.error("Create post error:", err);
   }
 }
 
-function handleShare(sharedPost: Post) {
-  setPosts((prev) => [sharedPost, ...prev]);
-  setSharedPostIds((prev) => ({
-    ...prev,
-    [sharedPost.originalPostId!]: sharedPost.id,
-  }));
-}
-
-function handleUnshare(sharedPostId: string) {
-  setPosts((prev) => prev.filter((p) => p.id !== sharedPostId));
-  setSharedPostIds((prev) => {
-    const updated = { ...prev };
-    const key = Object.keys(updated).find((k) => updated[k as keyof typeof updated] === sharedPostId);
-    if (key) delete updated[key as keyof typeof updated];
-    return updated;
-  });
-}
   return (
     <div className="flex h-screen bg-[#0d0d0f]">
       <AppSidebar />
@@ -782,9 +718,6 @@ function handleUnshare(sharedPostId: string) {
               <PostCard
                 key={post.id}
                 {...post}
-                onShare={handleShare}
-                onUnshare={handleUnshare}
-                sharedPostId={sharedPostIds[post.id]}
                 currentUser={currentUser}
               />
             ))}

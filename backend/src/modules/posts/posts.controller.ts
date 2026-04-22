@@ -41,4 +41,12 @@ export class PostsController {
     async toggleLike(@Req() req: any, @Param("id") postId: string) {
         return this.postsService.toggleLike(req.user.sub, postId);
     }
+
+    @Post(":id/share")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: "Share or unshare a post" })
+    async toggleShare(@Req() req: any, @Param("id") postId: string) {
+        return this.postsService.toggleShare(req.user.sub, postId);
+}
 }

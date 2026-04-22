@@ -68,15 +68,17 @@ export const apiClient = {
 
 export const api = {
   posts: {
-    getFeed: (page = 1, limit = 20) =>
-      apiClient.get<any>(`/posts/feed?page=${page}&limit=${limit}`),
-    create: (content: string, imageUrl?: string) =>
-      apiClient.post<any>("/posts", { content, imageUrl }),
-    like: (postId: string) =>
-      apiClient.post<{ liked: boolean }>(`/posts/${postId}/like`),
-    delete: (postId: string) =>
-      apiClient.delete<void>(`/posts/${postId}`),
-  },
+  getFeed: (page = 1, limit = 20) =>
+    apiClient.get<any>(`/posts/feed?page=${page}&limit=${limit}`),
+  create: (content: string, imageUrl?: string) =>
+    apiClient.post<any>("/posts", { content, imageUrl }),
+  like: (postId: string) =>
+    apiClient.post<{ liked: boolean }>(`/posts/${postId}/like`),
+  share: (postId: string) =>
+    apiClient.post<{ shared: boolean }>(`/posts/${postId}/share`),
+  delete: (postId: string) =>
+    apiClient.delete<void>(`/posts/${postId}`),
+},
 
   comments: {
   getAll: (postId: string, page = 1) =>
