@@ -58,13 +58,13 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    // if (user.twoFactorEnabled) {
-    //   return {
-    //     requires2fa: true,
-    //     userId: user.id,
-    //     message: "Please provide your 2FA code to complete login",
-    //   };
-    // }
+    if (user.twoFactorEnabled) {
+      return {
+        requires2fa: true,
+        userId: user.id,
+        message: "Please provide your 2FA code to complete login",
+      };
+    }
 
     const token = this.jwt.sign({ sub: user.id, username: user.username });
     return {
@@ -152,6 +152,10 @@ export class AuthService {
       await this.userRepo.save(user);
     }
 
+    if (user.twoFactorEnabled) {
+      return { requires2fa: true, userId: user.id };
+    }
+
     const token = this.jwt.sign({ sub: user.id, username: user.username });
     return {
       accessToken: token,
@@ -160,7 +164,7 @@ export class AuthService {
   }
 
   async generateTwoFactorAuthenticationSecret(user: any) {
-    console.log("🟢 JWT User Payload:", user);
+    console.log("JWT User Payload:", user);
 
     const userId = user?.id || user?.sub || user?.userId;
     const accountName = user?.email || user?.username || "StitchSocial_User";
@@ -182,7 +186,7 @@ export class AuthService {
       const qrCodeDataUrl = await qrcode.toDataURL(otpauthUrl);
       return { qrCodeDataUrl };
     } catch (error) {
-      console.error("🔴 Error f DB wla QR Generation:", error);
+      console.error("Error f DB wla QR Generation:", error);
       throw new InternalServerErrorException("Failed to generate 2FA QR code");
     }
   }
@@ -213,5 +217,28 @@ export class AuthService {
       twoFactorEnabled: false,
     });
     return { success: true };
+  }
+
+  async verify2faLogin(userId: string, authCode: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+
+    if (!user || !user.twoFactorSecret) {
+      throw new BadRequestException("2FA is not enabled for this user");
+    }
+
+    const isCodeValid = authenticator.verify({
+      token: authCode,
+      secret: user.twoFactorSecret,
+    });
+
+    if (!isCodeValid) {
+      throw new UnauthorizedException("Wrong 2FA code");
+    }
+
+    const token = this.jwt.sign({ sub: user.id, username: user.username });
+    return {
+      accessToken: token,
+      user: { id: user.id, username: user.username, email: user.email },
+    };
   }
 }

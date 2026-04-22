@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   Res,
+  BadRequestException,
 } from "@nestjs/common";
 import { Response } from "express";
 import { ConfigService } from "@nestjs/config";
@@ -56,9 +57,24 @@ export class AuthController {
     const frontendUrl =
       this.config.get<string>("app.frontendUrl") || "http://localhost:8080";
     const redirectUrl = new URL("/callback", frontendUrl);
-    redirectUrl.searchParams.append("token", result.accessToken);
-    redirectUrl.searchParams.append("user", JSON.stringify(result.user));
+    if (result.requires2fa) {
+      redirectUrl.searchParams.append("requires2fa", "true");
+      redirectUrl.searchParams.append("userId", result.userId);
+    } else {
+      redirectUrl.searchParams.append("token", result.accessToken || "");
+      redirectUrl.searchParams.append("user", JSON.stringify(result.user));
+    }
     res.redirect(redirectUrl.toString());
+  }
+
+  @Post("2fa/verify-login")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Verify 2FA code to complete login" })
+  async verify2faLogin(@Body() body: { userId: string; code: string }) {
+    if (!body.userId || !body.code) {
+      throw new BadRequestException("userId and code are required");
+    }
+    return this.authService.verify2faLogin(body.userId, body.code);
   }
 
   @Post("google/callback")
