@@ -15,11 +15,14 @@ interface User {
 }
 
 interface Comment {
-  id: number;
-  name: string;
-  text: string;
-  createdAt: Date;
-  avatar: string | null;
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
   replies?: Comment[];
 }
 
@@ -231,30 +234,34 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
 
 function CommentItem({ comment, onReply, isReply = false }: {
   comment: Comment;
-  onReply: (name: string, commentId: number) => void;
+  onReply: (name: string, commentId: string) => void;
   isReply?: boolean;
 }) {
-  const relativeTime = useRelativeTime(comment.createdAt);
+  const relativeTime = useRelativeTime(new Date(comment.createdAt));
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
-          {comment.avatar
-            ? <Image src={comment.avatar} alt={comment.name} width={32} height={32} className="rounded-full" />
-            : comment.name[0]
-          }
+        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+          <Image
+            src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
+            alt={comment.author.username}
+            width={32}
+            height={32}
+            className="rounded-full object-cover"
+          />
         </div>
         <div className="flex flex-col gap-1 flex-1">
           <div className="px-3 py-2 rounded-2xl rounded-tl-none" style={{ backgroundColor: "#242424" }}>
-            <span className="font-bold text-xs text-white block mb-0.5">{comment.name}</span>
-            <p className="text-sm text-slate-400">{comment.text}</p>
+            <span className="font-bold text-xs text-white block mb-0.5">
+              {comment.author.username}
+            </span>
+            <p className="text-sm text-slate-400">{comment.content}</p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
-            {/* Hide reply button for nested replies */}
             {!isReply && (
               <button
-                onClick={() => onReply(comment.name, comment.id)}
+                onClick={() => onReply(comment.author.username, comment.id)}
                 className="uppercase tracking-wider hover:text-[#895af6] transition-colors"
               >
                 REPLY
@@ -265,11 +272,16 @@ function CommentItem({ comment, onReply, isReply = false }: {
         </div>
       </div>
 
-      {/* Replies — pass isReply=true */}
+      {/* Replies — indented, no reply button */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="ml-10 flex flex-col gap-3 border-l-2 border-slate-800 pl-3">
+        <div className="ml-11 flex flex-col gap-3 border-l-2 border-slate-800 pl-3">
           {comment.replies.map((reply) => (
-            <CommentItem key={reply.id} comment={reply} onReply={onReply} isReply={true} />
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              onReply={onReply}
+              isReply={true}
+            />
           ))}
         </div>
       )}
@@ -281,69 +293,75 @@ function CommentItem({ comment, onReply, isReply = false }: {
 // COMMENT SECTION
 // ============================================================
 
-function CommentSection({ postId }: { postId: string }) {
-  const [commentsList, setCommentsList] = useState<Comment[]>(MOCK_COMMENTS);
+function CommentSection({ postId, currentUser }: { postId: string; currentUser: any }) {
+  const [commentsList, setCommentsList] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
-  const [replyingTo, setReplyingTo] = useState<{ name: string; commentId: number } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ name: string; commentId: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const canComment = commentText.trim().length > 0;
 
-  function handleReply(name: string, commentId: number) {
-    setReplyingTo({ name, commentId });
-    setCommentText(`@${name} `);
-  }
+  useEffect(() => {
+    async function loadComments() {
+      try {
+        const res = await api.comments.getAll(postId);
+        // reverse so newest on top
+        setCommentsList(res.data.reverse());
+      } catch (err) {
+        console.error("Load comments error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadComments();
+  }, [postId]);
+
+  
+  function handleReply(name: string, commentId: string) {
+  setReplyingTo({ name, commentId });
+  setCommentText("");  // ← clean input, no @name prefix
+}
 
   function handleCommentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-  const val = e.target.value;
-
-  if (replyingTo) {
-    if (val.trim().length === 0) {
-      // everything deleted — cancel reply mode
-      setReplyingTo(null);
-      setCommentText("");
-    } else {
-      // still has text — keep reply mode active no matter what
-      setCommentText(val);
-    }
-    return;
+  setCommentText(e.target.value);
+  if (replyingTo && e.target.value.trim().length === 0) {
+    setReplyingTo(null);
   }
-
-  setCommentText(val);
 }
 
 
-  function handleSend() {
-    if (!canComment) return;
+  async function handleSend() {
+  if (!canComment) return;
+  try {
+    const text = replyingTo
+      ? commentText.replace(`@${replyingTo.name} `, "").trim()
+      : commentText.trim();
 
-    const newComment: Comment = {
-      id: Date.now(),
-      name: "Mohamed amine",
-      text: replyingTo
-        ? commentText.replace(`@${replyingTo.name} `, "").trim()
-        : commentText.trim(),
-      createdAt: new Date(),
-      avatar: "/images/2.jpeg",
-      replies: [],
-    };
+    const created = await api.comments.create(
+      postId,
+      text,
+      replyingTo?.commentId ?? undefined
+    );
 
     if (replyingTo) {
-      // attach reply under parent comment
+      // attach reply under parent
       setCommentsList((prev) =>
         prev.map((c) =>
           c.id === replyingTo.commentId
-            ? { ...c, replies: [...(c.replies || []), newComment] }
+            ? { ...c, replies: [...(c.replies || []), created] }
             : c
         )
       );
     } else {
-      // new top-level comment on top
-      setCommentsList((prev) => [newComment, ...prev]);
+      setCommentsList((prev) => [created, ...prev]);
     }
 
     setCommentText("");
     setReplyingTo(null);
-    // TODO: call POST /posts/:id/comments
+  } catch (err) {
+    console.error("Comment error:", err);
   }
+}
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -365,23 +383,29 @@ function CommentSection({ postId }: { postId: string }) {
       {/* Input — at bottom */}
       <div className="flex gap-3 items-end border-t border-slate-800 pt-4">
         <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 mb-1">
-          <Image src="/images/2.jpeg" alt="you" width={36} height={36} className="rounded-full" />
+          <Image
+            src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
+            alt="you"
+            width={36}
+            height={36}
+            className="rounded-full object-cover"
+          />
         </div>
         <div className="flex-1 relative">
 
           {/* Replying to banner */}
           {replyingTo && (
-            <div
-              className="flex items-center justify-between text-[10px] text-[#895af6] font-semibold px-3 py-1 mb-1 rounded-lg"
-              style={{ backgroundColor: "#1a1a2e" }}
-            >
-              <span>Replying to @{replyingTo.name}</span>
-              <button
-                onClick={() => { setReplyingTo(null); setCommentText(""); }}
-                className="hover:opacity-70 ml-2"
-              >✕</button>
-            </div>
-          )}
+  <div
+    className="flex items-center justify-between text-[10px] text-[#895af6] font-semibold px-3 py-1 mb-1 rounded-lg"
+    style={{ backgroundColor: "#1a1a2e" }}
+  >
+    <span>Replying to {replyingTo.name}</span>
+    <button
+      onClick={() => { setReplyingTo(null); setCommentText(""); }}
+      className="hover:opacity-70 ml-2"
+    >✕</button>
+  </div>
+)}
 
           <textarea
             className="w-full border-none rounded-xl text-sm px-3 py-3 pr-12 resize-none text-slate-100 outline-none min-h-[44px] leading-relaxed placeholder-slate-500"
@@ -423,18 +447,11 @@ function CommentSection({ postId }: { postId: string }) {
 // POST CARD
 // ============================================================
 
-// Hardcoded mock comments — replace with API call later
-const MOCK_COMMENTS: Comment[] = [
-  { id: 1, name: "Elena Rodriguez", text: "The texture here is incredible!", createdAt: new Date(Date.now() - 15 * 60 * 1000), avatar: null },
-  { id: 2, name: "Marcus Stone", text: "Are these available as prints?", createdAt: new Date(Date.now() - 32 * 60 * 1000), avatar: null },
-  { id: 3, name: "Sophia Lane", text: "The violet palette is everything 💜", createdAt: new Date(Date.now() - 60 * 60 * 1000), avatar: null },
-  { id: 4, name: "Liam Carter", text: "This is pure art 🔥", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), avatar: null },
-];
-
-function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByMe, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId }: Post & {
+function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByMe, shares, sharedBy, originalPostId, onShare, onUnshare, sharedPostId, currentUser }: Post & {
   onShare: (post: Post) => void;
   onUnshare: (id: string) => void;
   sharedPostId?: string;
+  currentUser?: { avatarUrl: string | null; username: string } | null;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
   const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
@@ -623,7 +640,7 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count, isLikedByM
       </div>
 
       {/* Comments section */}
-      {showComments && <CommentSection postId={id} />}
+      {showComments && <CommentSection postId={id} currentUser={currentUser} />}
 
     </article>
   );
@@ -768,6 +785,7 @@ function handleUnshare(sharedPostId: string) {
                 onShare={handleShare}
                 onUnshare={handleUnshare}
                 sharedPostId={sharedPostIds[post.id]}
+                currentUser={currentUser}
               />
             ))}
 

@@ -79,11 +79,11 @@ export const api = {
   },
 
   comments: {
-    getAll: (postId: string, page = 1) =>
-      apiClient.get<any>(`/posts/${postId}/comments?page=${page}`),
-    create: (postId: string, content: string) =>
-      apiClient.post<any>(`/posts/${postId}/comments`, { content }),
-  },
+  getAll: (postId: string, page = 1) =>
+    apiClient.get<any>(`/posts/${postId}/comments?page=${page}`),
+  create: (postId: string, content: string, parentId?: string) =>
+    apiClient.post<any>(`/posts/${postId}/comments`, { content, parentId }),
+},
 
   media: {
   uploadPost: async (file: File) => {

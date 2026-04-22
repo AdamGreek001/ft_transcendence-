@@ -19,14 +19,13 @@ export class CommentsController {
     }
 
     @Post()
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: "Add a comment to a post" })
-    async create(
-        @Req() req: any,
-        @Param("postId") postId: string,
-        @Body() body: { content: string },
-    ) {
-        return this.commentsService.create(req.user.sub, postId, body.content);
-    }
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+async create(
+    @Req() req: any,
+    @Param("postId") postId: string,
+    @Body() body: { content: string; parentId?: string },
+) {
+    return this.commentsService.create(req.user.sub, postId, body.content, body.parentId);
+}
 }

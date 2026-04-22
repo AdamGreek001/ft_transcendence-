@@ -4,6 +4,7 @@ import {
     Column,
     CreateDateColumn,
     ManyToOne,
+    OneToMany,
     JoinColumn,
     Index,
 } from "typeorm";
@@ -25,6 +26,9 @@ export class Comment {
     @Index()
     postId: string;
 
+    @Column({ type: "uuid", name: "parent_id", nullable: true })
+    parentId: string | null;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
 
@@ -35,4 +39,11 @@ export class Comment {
     @ManyToOne(() => Post, (post) => post.comments, { onDelete: "CASCADE" })
     @JoinColumn({ name: "post_id" })
     post: Post;
+
+    @ManyToOne(() => Comment, (comment) => comment.replies, { nullable: true, onDelete: "CASCADE" })
+    @JoinColumn({ name: "parent_id" })
+    parent: Comment | null;
+
+    @OneToMany(() => Comment, (comment) => comment.parent)
+    replies: Comment[];
 }
