@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-// import Navbar from "@/components/Navbar";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
+  CardAction,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -17,6 +17,7 @@ import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useAuth } from "@/hooks/useAuth";
+import Link from "next/link";
 
 const LoginPage = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -42,6 +43,11 @@ const LoginPage = () => {
 
     try {
       const res = await api.post("/auth/login", { email, password });
+
+      if (res.data.requires2fa) {
+        router.push(`/2fa?userId=${res.data.userId}`);
+        return;
+      }
       const token = res.data.accessToken;
       const userData = res.data.user;
 
@@ -50,7 +56,7 @@ const LoginPage = () => {
 
         setAuth(token, userData);
         localStorage.setItem("user", JSON.stringify(userData));
-        router.push("/settings");
+        router.push("/feed");
       } else {
         console.error("Token not found in response:", res.data);
       }
@@ -64,18 +70,23 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* <header className="bg-gray-800">
-        <Navbar buttonText="Sign in" paragraph="Don't have an account ?" />
-      </header> */}
       <main className="flex-1 flex flex-col items-center justify-center gap-4 px-4 py-6">
         <Card className="w-full max-w-sm bg-gray-900">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-white">
               Welcom back
             </CardTitle>
-            <CardDescription className="text-gray-400 text-sm">
-              Enter your details to access your account
-            </CardDescription>
+            <CardAction className="flex items-center justify-between gap-2">
+              <CardDescription className="text-gray-400 text-sm">
+                Don't you have an account?
+              </CardDescription>
+              <Link
+                href="/register"
+                className="text-gray-300 hover:text-white transition text-sm font-medium"
+              >
+                Sign up
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="flex flex-col gap-4">

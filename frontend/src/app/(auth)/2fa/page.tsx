@@ -24,7 +24,7 @@ export default function TwoFactorVerify() {
 
   const handleVerify2FA = async () => {
     try {
-      const res = await api.post("/auth/2fa/verify", { userId, code });
+      const res = await api.post("/auth/2fa/verify-login", { userId, code });
       const token = res.data.accessToken;
 
       if (token) {
@@ -50,7 +50,7 @@ export default function TwoFactorVerify() {
       />
       <button 
         onClick={handleVerify2FA}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 w-full max-w-48"
+        className="text-white px-6 py-2 rounded bg-purple-600 hover:bg-purple-700 w-full max-w-48"
       >
         Verify Code
       </button>

@@ -170,8 +170,18 @@ export default function SettingsPage() {
               className="absolute right-3 top-3 z-10 p-2 rounded-full bg-black/40 text-white"
               aria-label="Close sidebar"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
             <AppSidebar />
@@ -192,8 +202,18 @@ export default function SettingsPage() {
               className="lg:hidden p-2 hover:bg-gray-800/50 rounded-full transition text-gray-300"
               aria-label="Open navigation sidebar"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
@@ -269,7 +289,6 @@ export default function SettingsPage() {
                   <p className="text-xs sm:text-sm text-gray-500 mb-3">
                     Min 400×400px, PNG or JPG.
                   </p>
-
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() =>
@@ -378,16 +397,16 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </div>
-                {/* 👇 Hna beddelna l-onClick */}
                 <button
-                  onClick={handleToggle2FA} 
-                  className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+                  type="button"
+                  onClick={handleToggle2FA}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     twoFactorEnabled ? "bg-violet-600" : "bg-gray-600"
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                      twoFactorEnabled ? "translate-x-6" : "translate-x-0.5"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      twoFactorEnabled ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>
@@ -397,14 +416,21 @@ export default function SettingsPage() {
           {is2FAModalOpen && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
               <div className="bg-[#1a1a1f] border border-gray-800 rounded-xl sm:rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-                <h3 className="text-xl font-bold text-white mb-2">Enable 2FA</h3>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  Enable 2FA
+                </h3>
                 <p className="text-sm text-gray-400 mb-6">
-                  Scan this QR code with Google Authenticator or Authy, then enter the 6-digit code below.
+                  Scan this QR code with Google Authenticator or Authy, then
+                  enter the 6-digit code below.
                 </p>
 
                 <div className="bg-white p-4 rounded-xl mb-6 flex justify-center">
                   {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt="2FA QR Code" className="w-40 h-40 sm:w-48 sm:h-48" />
+                    <img
+                      src={qrCodeUrl}
+                      alt="2FA QR Code"
+                      className="w-40 h-40 sm:w-48 sm:h-48"
+                    />
                   ) : (
                     <div className="w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center text-gray-500 animate-pulse">
                       Loading QR...
@@ -420,7 +446,9 @@ export default function SettingsPage() {
                     type="text"
                     maxLength={6}
                     value={twoFactorCode}
-                    onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) =>
+                      setTwoFactorCode(e.target.value.replace(/\D/g, ""))
+                    }
                     className="w-full px-4 py-3 bg-[#2a2a2f] border border-gray-700 rounded-xl text-center text-xl sm:text-2xl tracking-[0.35em] sm:tracking-[0.5em] font-mono text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     placeholder="000000"
                   />
