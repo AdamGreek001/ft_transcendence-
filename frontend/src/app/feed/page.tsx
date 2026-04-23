@@ -135,14 +135,57 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_CONTENT_LENGTH = 2000;
-  const canPost = text.trim().length > 0 || image !== null;
   const isContentTooLong = text.length > MAX_CONTENT_LENGTH;
+  const canPost = (text.trim().length > 0 || image !== null) && !isContentTooLong;
+
  
   const avatarUrl = normalizeAvatarUrl(
     currentUser?.avatarUrl,
     currentUser?.username
   );
 
+    function CharCounter({ current, max }: { current: number; max: number }) {
+  const remaining = max - current;
+  const percentage = Math.min(current / max, 1);
+  const radius = 10;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - percentage * circumference;
+  const isNearLimit = remaining <= 20;
+  const isOverLimit = remaining < 0;
+  const displayValue = remaining < -1000 ? "..." : remaining;
+
+  const strokeColor = isOverLimit ? "#ef4444" : isNearLimit ? "#f59e0b" : "#895af6";
+
+  return (
+    <div className="flex items-center gap-2">
+      {isNearLimit && (
+        <span className={`text-xs font-bold ${isOverLimit ? "text-red-400" : "text-slate-400"}`}>
+          {displayValue}
+        </span>
+      )}
+      <svg width="24" height="24" className="-rotate-90">
+        {/* background circle */}
+        <circle
+          cx="12" cy="12" r={radius}
+          fill="none"
+          stroke="#334155"
+          strokeWidth="2"
+        />
+        {/* progress circle */}
+        <circle
+          cx="12" cy="12" r={radius}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={isOverLimit ? 0 : strokeDashoffset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.2s, stroke 0.2s" }}
+        />
+      </svg>
+    </div>
+  );
+}
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -178,9 +221,8 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
           />  
         </div>
         <textarea
-          className="w-full bg-transparent border-none focus:ring-0 text-slate-100 placeholder-slate-500 resize-none py-2 text-sm outline-none"
+          className="w-full bg-transparent text-slate-100 resize-none py-2 text-sm custom-scrollbar outline-none overflow-y-auto max-h-32"
           placeholder="What's on your mind?"
-          rows={2}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
@@ -213,7 +255,8 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
             onChange={handleImageChange}
           />
         </label>
-
+        <div className="flex items-center gap-3">
+          {text.length > 0 && <CharCounter current={text.length} max={MAX_CONTENT_LENGTH} />}
         {/* Post button — disabled state when nothing to post */}
         <button
           onClick={handlePost}
@@ -226,6 +269,7 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
         >
           Post
         </button>
+        </div>
 
       </div>
     </section>
@@ -236,10 +280,11 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
 // COMMENT ITEM
 // ============================================================
 
-function CommentItem({ comment, onReply, isReply = false }: {
+function CommentItem({ comment, onReply, isReply = false , currentUser}: {
   comment: Comment;
   onReply: (name: string, commentId: string) => void;
   isReply?: boolean;
+  currentUser: any;
 }) {
   const relativeTime = useRelativeTime(new Date(comment.createdAt));
 
@@ -256,11 +301,17 @@ function CommentItem({ comment, onReply, isReply = false }: {
           />
         </div>
         <div className="flex flex-col gap-1 flex-1">
-          <div className="px-3 py-2 rounded-2xl rounded-tl-none" style={{ backgroundColor: "#242424" }}>
-            <span className="font-bold text-xs text-white block mb-0.5">
+          <div 
+            className="px-3 py-2 rounded-2xl rounded-tl-none"
+            style={{ backgroundColor: "#242424" }}
+          >
+            <span className="font-bold text-xs text-white block mb-0.5"
+              style={{ color: currentUser?.username === comment.author.username ? "#895af6" : "#fff" }}>
               {comment.author.username}
             </span>
-            <p className="text-sm text-slate-400">{comment.content}</p>
+            <p className="text-sm text-slate-400 break-all">
+              {comment.content}
+            </p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
             {!isReply && (
@@ -285,6 +336,7 @@ function CommentItem({ comment, onReply, isReply = false }: {
               comment={reply}
               onReply={onReply}
               isReply={true}
+              currentUser={currentUser}
             />
           ))}
         </div>
@@ -303,8 +355,11 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   const [replyingTo, setReplyingTo] = useState<{ name: string; commentId: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const canComment = commentText.trim().length > 0;
+  const MAX_COMMENT_LENGTH = 500;
+  const isCommentTooLong = commentText.length > MAX_COMMENT_LENGTH;
+  const canComment = commentText.trim().length > 0 && !isCommentTooLong;
 
+  
   useEffect(() => {
     async function loadComments() {
       try {
@@ -325,7 +380,48 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   setReplyingTo({ name, commentId });
   setCommentText("");  // ← clean input, no @name prefix
 }
+  function CharCounter({ current, max }: { current: number; max: number }) {
+  const remaining = max - current;
+  const percentage = Math.min(current / max, 1);
+  const radius = 10;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - percentage * circumference;
+  const isNearLimit = remaining <= 20;
+  const isOverLimit = remaining < 0;
+  const displayValue = remaining < -500 ? "..." : remaining;
 
+  const strokeColor = isOverLimit ? "#ef4444" : isNearLimit ? "#f59e0b" : "#895af6";
+
+  return (
+    <div className="flex items-center gap-2">
+      {isNearLimit && (
+        <span className={`text-xs font-bold ${isOverLimit ? "text-red-400" : "text-slate-400"}`}>
+          {displayValue}
+        </span>
+      )}
+      <svg width="24" height="24" className="-rotate-90">
+        {/* background circle */}
+        <circle
+          cx="12" cy="12" r={radius}
+          fill="none"
+          stroke="#334155"
+          strokeWidth="2"
+        />
+        {/* progress circle */}
+        <circle
+          cx="12" cy="12" r={radius}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={isOverLimit ? 0 : strokeDashoffset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.2s, stroke 0.2s" }}
+        />
+      </svg>
+    </div>
+  );
+}
   function handleCommentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
   setCommentText(e.target.value);
   if (replyingTo && e.target.value.trim().length === 0) {
@@ -380,7 +476,7 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
       {/* Comments list — on top */}
       <div className="flex flex-col gap-4">
         {commentsList.map((c) => (
-          <CommentItem key={c.id} comment={c} onReply={handleReply} />
+          <CommentItem key={c.id} comment={c} onReply={handleReply} currentUser={currentUser} />
         ))}
       </div>
 
@@ -395,52 +491,47 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
             className="rounded-full object-cover"
           />
         </div>
-        <div className="flex-1 relative">
+        <div className="flex-1">
+  {replyingTo && (
+    <div
+      className="flex items-center justify-between text-[10px] text-[#895af6] font-semibold px-3 py-1 mb-1 rounded-lg"
+      style={{ backgroundColor: "#1a1a2e" }}
+    >
+      <span>Replying to {replyingTo.name}</span>
+      <button onClick={() => { setReplyingTo(null); setCommentText(""); }} className="hover:opacity-70 ml-2">✕</button>
+    </div>
+  )}
 
-          {/* Replying to banner */}
-          {replyingTo && (
-  <div
-    className="flex items-center justify-between text-[10px] text-[#895af6] font-semibold px-3 py-1 mb-1 rounded-lg"
-    style={{ backgroundColor: "#1a1a2e" }}
-  >
-    <span>Replying to {replyingTo.name}</span>
-    <button
-      onClick={() => { setReplyingTo(null); setCommentText(""); }}
-      className="hover:opacity-70 ml-2"
-    >✕</button>
+  {/* textarea + actions in a bordered box */}
+  <div className="rounded-xl" style={{ backgroundColor: "#242424", outline: canComment ? "1px solid #895af6" : "none" }}>
+    <textarea
+      className="w-full border-none rounded-xl text-sm px-3 pt-3 pb-1 resize-none text-slate-100 custom-scrollbar outline-none min-h-[44px] leading-relaxed placeholder-slate-500"
+      style={{ backgroundColor: "transparent" }}
+      placeholder="Add a comment..."
+      rows={1}
+      value={commentText}
+      onChange={handleCommentChange}
+      onKeyDown={handleKeyDown}
+    />
+
+    {/* bottom row — counter + send */}
+    <div className="flex items-center justify-end gap-2 px-3 pb-2">
+      {commentText.length > 0 && (
+        <CharCounter current={commentText.length} max={MAX_COMMENT_LENGTH} />
+      )}
+      <button
+        onClick={handleSend}
+        disabled={!canComment}
+        style={{
+          color: canComment ? "#895af6" : "#475569",
+          cursor: canComment ? "pointer" : "not-allowed",
+        }}
+      >
+        <img src="/icons/send.svg" alt="send" className="w-5 h-5" />
+      </button>
+    </div>
   </div>
-)}
-
-          <textarea
-            className="w-full border-none rounded-xl text-sm px-3 py-3 pr-12 resize-none text-slate-100 outline-none min-h-[44px] leading-relaxed placeholder-slate-500"
-            style={{
-              backgroundColor: "#242424",
-              outline: canComment ? "1px solid #895af6" : "none",
-            }}
-            placeholder="Add a comment..."
-            rows={1}
-            value={commentText}
-            onChange={handleCommentChange}
-            onKeyDown={handleKeyDown}
-          />
-          <div className="absolute right-3 flex items-center gap-1" 
-            style={{ 
-              top: replyingTo ? "calc(50% + 12px)" : "45%",  // shift down when banner visible
-              transform: "translateY(-50%)" 
-            }}
->
-            <button
-              onClick={handleSend}
-              disabled={!canComment}
-              style={{
-                color: canComment ? "#895af6" : "#475569",
-                cursor: canComment ? "pointer" : "not-allowed",
-              }}
-            >
-              <img src="/icons/send.svg" alt="send" className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+</div>
       </div>
 
     </div>
@@ -545,7 +636,7 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
       {/* Text content */}
       {content && (
         <div className="px-4 pb-3">
-          <p className="text-sm leading-relaxed text-slate-300">{content}</p>
+          <p className="text-sm leading-relaxed text-slate-300 break-all">{content}</p>
         </div>
       )}
 
@@ -704,7 +795,7 @@ export default function FeedPage() {
     <div className="flex h-screen bg-[#0d0d0f]">
       <AppSidebar />
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0f0f0f]">
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-400/20 scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
             {currentUser && (
