@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
 import Cookies from "js-cookie";
+import { apiClient } from "@/lib/api";
 
 export function useAuth() {
     const { accessToken, user, setAuth, clearAuth, isHydrated, setHydrated } =
@@ -12,14 +13,38 @@ export function useAuth() {
         if (!isHydrated) {
             const storedToken = Cookies.get("token");
             const storedUser = localStorage.getItem("user");
-            if (storedToken && storedUser) {
-                try {
-                    setAuth(storedToken, JSON.parse(storedUser));
-                } catch {
+
+            const hydrateAuth = async () => {
+                if (!storedToken) {
                     clearAuth();
+                    setHydrated();
+                    return;
                 }
-            }
-            setHydrated();
+
+                if (storedUser) {
+                    try {
+                        setAuth(storedToken, JSON.parse(storedUser));
+                        setHydrated();
+                        return;
+                    } catch {
+                        localStorage.removeItem("user");
+                    }
+                }
+
+                try {
+                    const me = await apiClient.get<any>("/users/me");
+                    setAuth(storedToken, me);
+                    localStorage.setItem("user", JSON.stringify(me));
+                } catch {
+                    localStorage.removeItem("user");
+                    // Keep token-based session alive; pages can retry /users/me or use token-protected APIs.
+                    setAuth(storedToken, null);
+                } finally {
+                    setHydrated();
+                }
+            };
+
+            void hydrateAuth();
         }
     }, [isHydrated, setAuth, clearAuth, setHydrated]);
 

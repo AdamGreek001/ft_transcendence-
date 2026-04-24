@@ -217,20 +217,43 @@ export default function NotificationsPage() {
     useEffect(() => {
         if (!isHydrated || !isAuthenticated) return;
 
+        // Restore cached notifications immediately to avoid flash of empty state
+        try {
+            const cached = sessionStorage.getItem("notifications_cache");
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setNotifications(parsed);
+                }
+            }
+        } catch {
+            // Ignore cache parse errors.
+        }
+
         const fetchNotifications = async () => {
             setIsLoading(true);
             try {
                 const data = await apiClient.get<NotificationsResponse>("/notifications");
-                setNotifications((data.notifications || []).map(mapBackendNotification));
+                const mapped = (data.notifications || []).map(mapBackendNotification);
+                setNotifications(mapped);
+                sessionStorage.setItem("notifications_cache", JSON.stringify(mapped));
             } catch (error) {
                 console.error("Failed to fetch notifications:", error);
-                setNotifications([]);
+                // Don't clear existing notifications on transient errors (e.g., 429 rate limit)
+                // Only set empty if we had no notifications to begin with
+                setNotifications(prev => prev.length > 0 ? prev : []);
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchNotifications();
+    }, [isHydrated, isAuthenticated]);
+
+    useEffect(() => {
+        if (isHydrated && !isAuthenticated) {
+            setIsLoading(false);
+        }
     }, [isHydrated, isAuthenticated]);
 
     useEffect(() => {

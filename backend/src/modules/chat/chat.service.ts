@@ -63,7 +63,7 @@ export class ChatService {
 
         // Update conversation with last message
         await this.convRepo.update(conversation.id, {
-            lastMessage: content.substring(0, 100),
+            lastMessage: content.substring(0, 200),
             lastMessageAt: new Date(),
         });
 

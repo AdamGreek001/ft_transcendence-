@@ -15,7 +15,7 @@ export class DirectMessage {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column({ type: "varchar", length: 2000 })
+    @Column({ type: "text" })
     content: string;
 
     @Column({ type: "uuid", name: "sender_id" })

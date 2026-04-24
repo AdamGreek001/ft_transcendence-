@@ -208,12 +208,25 @@ export default function MessagesPage() {
     useEffect(() => {
         if (!isHydrated || !isAuthenticated) return;
 
+        try {
+            const cachedConversations = sessionStorage.getItem("messages_conversations_cache");
+            if (cachedConversations) {
+                const parsed = JSON.parse(cachedConversations);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setConversations(parsed);
+                }
+            }
+        } catch {
+            // Ignore cache parse failures.
+        }
+
         const fetchConversations = async () => {
             setIsLoading(true);
             try {
                 const data = await apiClient.get<ConversationResponse[]>("/chat/conversations");
                 const mapped = data.map(mapConversation);
                 setConversations(mapped);
+                sessionStorage.setItem("messages_conversations_cache", JSON.stringify(mapped));
 
                 const preselectedConversationId = searchParams.get("conversationId");
                 if (preselectedConversationId) {
@@ -229,6 +242,17 @@ export default function MessagesPage() {
                 }
             } catch (error) {
                 console.error("Failed to fetch conversations:", error);
+                try {
+                    const cachedConversations = sessionStorage.getItem("messages_conversations_cache");
+                    if (cachedConversations) {
+                        const parsed = JSON.parse(cachedConversations);
+                        if (Array.isArray(parsed)) {
+                            setConversations(parsed);
+                        }
+                    }
+                } catch {
+                    // Ignore cache parse failures.
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -236,6 +260,12 @@ export default function MessagesPage() {
 
         fetchConversations();
     }, [isHydrated, isAuthenticated, searchParams]);
+
+    useEffect(() => {
+        if (isHydrated && !isAuthenticated) {
+            setIsLoading(false);
+        }
+    }, [isHydrated, isAuthenticated]);
 
     useEffect(() => {
         if (!isHydrated || !isAuthenticated || !user?.id) return;
@@ -1000,7 +1030,7 @@ export default function MessagesPage() {
                             {/* Typing indicator */}
                             {typingUsers.size > 0 && (
                                 <div className="text-xs text-gray-400 mb-2 pl-2">
-                                    Someone is typing...
+                                    {selectedConversation?.name || "Someone"} is typing...
                                 </div>
                             )}
                             <form onSubmit={handleSendMessage} className="flex items-center gap-3">
@@ -1014,12 +1044,24 @@ export default function MessagesPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                                     </svg>
                                 </button>
-                                <input
-                                    type="text"
+                                <textarea
                                     value={input}
                                     onChange={(e) => handleInputChange(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage(e as unknown as FormEvent);
+                                        }
+                                    }}
+                                    onInput={(e) => {
+                                        const target = e.target as HTMLTextAreaElement;
+                                        target.style.height = "auto";
+                                        target.style.height = Math.min(target.scrollHeight, 150) + "px";
+                                    }}
                                     placeholder="Type a message..."
-                                    className="flex-1 min-w-0 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-full px-4 sm:px-5 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50"
+                                    rows={1}
+                                    className="flex-1 min-w-0 bg-[#1a1a1f] text-white placeholder-gray-500 rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 border border-gray-800/50 resize-none overflow-y-auto"
+                                    style={{ maxHeight: "150px" }}
                                 />
                                 <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                                 <button

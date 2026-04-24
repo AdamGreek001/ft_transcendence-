@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { api, apiClient } from "@/lib/api";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { useAuth } from "@/hooks/useAuth";
 
 // ============================================================
 // TYPES — ready for real API data later
@@ -735,6 +736,7 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
 // ============================================================
 
 export default function FeedPage() {
+  const { user: authUser, isHydrated } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -747,10 +749,35 @@ export default function FeedPage() {
     try {
       setLoading(true);
       const res = await api.posts.getFeed();
-      console.log("First post:", JSON.stringify(res.data?.[0]));
-      setPosts(res.data);
+      const nextPosts = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+          ? res
+          : [];
+
+      setPosts(nextPosts);
+      sessionStorage.setItem("feed_cache", JSON.stringify(nextPosts));
+      setError(null);
     } catch (err: any) {
       console.error("Feed error:", err);
+
+      // Keep feed populated on transient API failures (including 429 rate limits).
+      try {
+        const cached = sessionStorage.getItem("feed_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPosts(parsed);
+            // Don't show error banner when we have cached data to display
+            setError(null);
+            return;
+          }
+        }
+      } catch {
+        // Ignore cache parse errors.
+      }
+
+      // Only set error when we have no cached data to show
       setError(err.message || "Failed to load feed");
     } finally {
       setLoading(false);
@@ -761,14 +788,48 @@ export default function FeedPage() {
     try {
       const user = await apiClient.get<{ avatarUrl: string | null; username: string }>("/users/me");
       setCurrentUser(user);
+      localStorage.setItem("feed_current_user_cache", JSON.stringify(user));
     } catch (err) {
       console.error("Failed to fetch current user:", err);
+
+      // Fallback so CreatePost does not disappear when /users/me intermittently fails.
+      if (authUser) {
+        setCurrentUser(authUser);
+        return;
+      }
+
+      try {
+        const cached = localStorage.getItem("feed_current_user_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.username) {
+            setCurrentUser(parsed);
+          }
+        }
+      } catch {
+        // Ignore cache parse errors.
+      }
     }
   }
 
   useEffect(() => {
+  if (!isHydrated) return;
+
   async function init() {
     setLoading(true);
+
+    try {
+      const cached = sessionStorage.getItem("feed_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPosts(parsed);
+        }
+      }
+    } catch {
+      // Ignore cache parse errors.
+    }
+
     await Promise.all([loadFeed(), fetchCurrentUser()]);
     setLoading(false);
   }
@@ -778,7 +839,13 @@ export default function FeedPage() {
     Promise.all([loadFeed(), fetchCurrentUser()]);
   }, 30000);
   return () => clearInterval(interval);
-}, []);
+}, [isHydrated]);
+
+  useEffect(() => {
+    if (authUser && !currentUser) {
+      setCurrentUser(authUser);
+    }
+  }, [authUser, currentUser]);
 
  async function handleAddPost(text: string, image?: File) {
   try {
@@ -803,13 +870,30 @@ export default function FeedPage() {
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
-            {currentUser && (
-              <CreatePost
-                profile_image={normalizeAvatarUrl(currentUser.avatarUrl)}
-                currentUser={currentUser}
-                onSubmit={handleAddPost}
-              />
+            <CreatePost
+              profile_image={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
+              currentUser={currentUser || { username: "user", avatarUrl: null }}
+              onSubmit={handleAddPost}
+            />
+
+            {loading && (
+              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                Loading feed...
+              </div>
             )}
+
+            {!loading && error && (
+              <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
+                Failed to load feed. Refresh again in a moment.
+              </div>
+            )}
+
+            {!loading && !error && posts.length === 0 && (
+              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                No posts yet.
+              </div>
+            )}
+
             {posts.map((post) => (
               <PostCard
                 key={post.id}

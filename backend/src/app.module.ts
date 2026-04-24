@@ -60,7 +60,7 @@ import { PublicApiModule } from "./modules/public-api/public-api.module";
       }),
     }),
 
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 200 }]),
 
     AuthModule,
     UsersModule,

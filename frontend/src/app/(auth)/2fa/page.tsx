@@ -2,8 +2,10 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
 import Cookies from 'js-cookie';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/auth';
 
 export default function TwoFactorVerify() {
   const searchParams = useSearchParams();
@@ -11,6 +13,7 @@ export default function TwoFactorVerify() {
   const [code, setCode] = useState('');
   const router = useRouter();
   const { isAuthenticated, isHydrated } = useAuth();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   useEffect(() => {
     if (isHydrated && isAuthenticated) {
@@ -29,6 +32,15 @@ export default function TwoFactorVerify() {
 
       if (token) {
         Cookies.set("token", token, { expires: 7, path: "/" });
+
+        try {
+          const me = await apiClient.get<any>("/users/me");
+          setAuth(token, me);
+          localStorage.setItem("user", JSON.stringify(me));
+        } catch {
+          // Fallback: allow useAuth hydration to recover user from token later.
+        }
+
         router.push("/feed");
       }
     } catch (error: any) {

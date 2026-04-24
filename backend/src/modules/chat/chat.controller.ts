@@ -11,12 +11,14 @@ import {
     UseInterceptors,
     UploadedFile,
     BadRequestException,
+    UnauthorizedException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiConsumes } from "@nestjs/swagger";
 import { ChatService } from "./chat.service";
 import { MediaService } from "../media/media.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { SkipThrottle } from "@nestjs/throttler";
 import { SendMessageDto, GetMessagesQueryDto } from "./dto";
 
 // File size limit for chat uploads
@@ -37,10 +39,19 @@ export class ChatController {
         private readonly mediaService: MediaService,
     ) {}
 
+    private getAuthUserId(req: any): string {
+        const userId = req?.user?.sub || req?.user?.id || req?.user?.userId;
+        if (!userId) {
+            throw new UnauthorizedException("Invalid authentication payload");
+        }
+        return userId;
+    }
+
     @Get("conversations")
+    @SkipThrottle()
     @ApiOperation({ summary: "Get all conversations for current user" })
     async getConversations(@Req() req: any) {
-        return this.chatService.getConversations(req.user.sub);
+        return this.chatService.getConversations(this.getAuthUserId(req));
     }
 
     @Get("conversations/:id/messages")
@@ -54,7 +65,7 @@ export class ChatController {
     ) {
         return this.chatService.getMessages(
             conversationId,
-            req.user.sub,
+            this.getAuthUserId(req),
             query.page || 1,
             query.limit || 50,
         );
@@ -63,31 +74,32 @@ export class ChatController {
     @Post("messages")
     @ApiOperation({ summary: "Send a direct message" })
     async sendMessage(@Body() dto: SendMessageDto, @Req() req: any) {
-        return this.chatService.sendMessage(req.user.sub, dto.receiverId, dto.content);
+        return this.chatService.sendMessage(this.getAuthUserId(req), dto.receiverId, dto.content);
     }
 
     @Post("conversations/start")
     @ApiOperation({ summary: "Get or create a direct conversation with a user" })
     async startConversation(@Body("userId") userId: string, @Req() req: any) {
-        return this.chatService.startConversation(req.user.sub, userId);
+        return this.chatService.startConversation(this.getAuthUserId(req), userId);
     }
 
     @Patch("messages/:id/read")
     @ApiOperation({ summary: "Mark a message as read" })
     async markAsRead(@Param("id") messageId: string, @Req() req: any) {
-        return this.chatService.markAsRead(messageId, req.user.sub);
+        return this.chatService.markAsRead(messageId, this.getAuthUserId(req));
     }
 
     @Patch("conversations/:id/read")
     @ApiOperation({ summary: "Mark all messages in conversation as read" })
     async markConversationAsRead(@Param("id") conversationId: string, @Req() req: any) {
-        return this.chatService.markConversationAsRead(conversationId, req.user.sub);
+        return this.chatService.markConversationAsRead(conversationId, this.getAuthUserId(req));
     }
 
     @Get("unread-count")
+    @SkipThrottle()
     @ApiOperation({ summary: "Get total unread message count" })
     async getUnreadCount(@Req() req: any) {
-        const count = await this.chatService.getUnreadCount(req.user.sub);
+        const count = await this.chatService.getUnreadCount(this.getAuthUserId(req));
         return { count };
     }
 

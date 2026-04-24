@@ -14,6 +14,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import { UsersService } from "./users.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -69,6 +70,7 @@ export class UsersController {
   }
 
   @Get("me")
+  @SkipThrottle()
   @UseGuards(JwtAuthGuard)
   async getMe(@Req() req: any) {
     return this.usersService.findById(this.getAuthUserId(req));
@@ -220,12 +222,14 @@ export class UsersController {
   }
 
   @Get(":id/followers")
+  @SkipThrottle()
   @ApiOperation({ summary: "Get user followers" })
   async getFollowers(@Param("id") id: string) {
     return this.usersService.getFollowers(id);
   }
 
   @Get(":id/following")
+  @SkipThrottle()
   @ApiOperation({ summary: "Get users this user follows" })
   async getFollowing(@Param("id") id: string) {
     return this.usersService.getFollowing(id);

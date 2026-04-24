@@ -108,6 +108,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (!senderId) return { error: "Unauthorized" };
 
         try {
+            // Validate content length
+            if (!data.content || data.content.length === 0) {
+                return { error: "Message content cannot be empty" };
+            }
+            if (data.content.length > 10000) {
+                return { error: "Message content exceeds maximum length of 10000 characters" };
+            }
+
             const message = await this.chatService.sendMessage(
                 senderId,
                 data.receiverId,

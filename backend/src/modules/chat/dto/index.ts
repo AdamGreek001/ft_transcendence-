@@ -6,10 +6,10 @@ export class SendMessageDto {
     @IsUUID()
     receiverId: string;
 
-    @ApiProperty({ description: "Message content", maxLength: 2000 })
+    @ApiProperty({ description: "Message content", maxLength: 10000 })
     @IsString()
     @MinLength(1)
-    @MaxLength(2000)
+    @MaxLength(10000)
     content: string;
 }
 

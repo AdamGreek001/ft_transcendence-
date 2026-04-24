@@ -23,14 +23,22 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 by redirecting to login
+// Handle 401 by redirecting to login, and retry 429 (rate limited)
 instance.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       Cookies.remove("token", { path: "/" });
       window.location.href = "/login";
     }
+
+    // Retry once on 429 (Too Many Requests) after a short delay
+    if (error.response?.status === 429 && !error.config.__retried) {
+      error.config.__retried = true;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return instance(error.config);
+    }
+
     return Promise.reject(error);
   },
 );

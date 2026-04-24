@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, UnauthorizedException } from "@nestjs/common";
+import { SkipThrottle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { PostsService } from "./posts.service";
 import { Comment } from "../../entities/comment.entity";
@@ -9,7 +10,16 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 export class PostsController {
     constructor(private readonly postsService: PostsService) { }
 
+    private getAuthUserId(req: any): string {
+        const userId = req?.user?.sub || req?.user?.id || req?.user?.userId;
+        if (!userId) {
+            throw new UnauthorizedException("Invalid authentication payload");
+        }
+        return userId;
+    }
+
     @Get("feed")
+    @SkipThrottle()
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: "Get personalized feed" })
@@ -19,7 +29,7 @@ export class PostsController {
         @Query("limit") limit = 20,
     ) {
         try {
-        return this.postsService.getFeed(req.user.sub, +page, +limit);
+        return this.postsService.getFeed(this.getAuthUserId(req), +page, +limit);
         } catch (err) {
             console.error('🔴 GET FEED ERROR:', err);
             throw err;
@@ -31,7 +41,7 @@ export class PostsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: "Create a new post" })
     async create(@Req() req: any, @Body() body: { content: string; imageUrl?: string }) {
-        return this.postsService.create(req.user.sub, body.content, body.imageUrl);
+        return this.postsService.create(this.getAuthUserId(req), body.content, body.imageUrl);
     }
 
     @Get(":id")
@@ -45,7 +55,7 @@ export class PostsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: "Like or unlike a post" })
     async toggleLike(@Req() req: any, @Param("id") postId: string) {
-        return this.postsService.toggleLike(req.user.sub, postId);
+        return this.postsService.toggleLike(this.getAuthUserId(req), postId);
     }
 
     @Post(":id/share")
@@ -53,6 +63,6 @@ export class PostsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: "Share or unshare a post" })
     async toggleShare(@Req() req: any, @Param("id") postId: string) {
-        return this.postsService.toggleShare(req.user.sub, postId);
+        return this.postsService.toggleShare(this.getAuthUserId(req), postId);
 }
 }
