@@ -5,8 +5,8 @@ import { Post } from "../../entities/post.entity";
 import { Like } from "../../entities/like.entity";
 import { Share } from "../../entities/share.entity";
 import { Follow } from "../../entities/follow.entity";
+import { Comment } from "../../entities/comment.entity"; // ← ADD THIS IMPORT
 import { NotificationsService } from "../notifications/notifications.service";
-
 
 @Injectable()
 export class PostsService {
@@ -34,74 +34,81 @@ export class PostsService {
 
         const [likesCount, commentsCount] = await Promise.all([
             this.likeRepo.count({ where: { postId: id } }),
-            this.postRepo.manager.count("comments", { where: { postId: id } }),
+            this.postRepo.manager.count(Comment, { where: { postId: id } }),
         ]);
 
         return { ...post, _count: { likes: likesCount, comments: commentsCount } };
     }
 
     async getFeed(userId: string, page: number, limit: number) {
-    const skip = (page - 1) * limit;
-    const follows = await this.followRepo.find({
-        where: { followerId: userId },
-        select: ["followingId"],
-    });
-    const followingIds = follows.map((f) => f.followingId);
-    followingIds.push(userId);
+        try { // ← try opens here
+            const skip = (page - 1) * limit;
+            const follows = await this.followRepo.find({
+                where: { followerId: userId },
+                select: ["followingId"],
+            });
+            const followingIds = follows
+                .map((f) => f.followingId)
+                .filter(Boolean);
 
-    // get posts AND shared posts from following
-    const sharedByFollowing = await this.shareRepo.find({
-        where: { userId: In(followingIds) },
-        relations: ["user"],
-    });
-    const sharedPostIds = sharedByFollowing.map((s) => s.postId);
+            if (userId) {
+                followingIds.push(userId);
+            }
 
-    const [posts, total] = await this.postRepo.findAndCount({
-        where: [
-            { authorId: In(followingIds) },
-            { id: In(sharedPostIds.length > 0 ? sharedPostIds : [""]) },
-        ],
-        order: { createdAt: "DESC" },
-        skip,
-        take: limit,
-        relations: ["author"],
-    });
+            const sharedByFollowing = await this.shareRepo.find({
+                where: { userId: In(followingIds) },
+                relations: ["user"],
+            });
+            const sharedPostIds = sharedByFollowing.map((s) => s.postId);
 
-    const data = await Promise.all(
-        posts.map(async (post) => {
-            const [likesCount, commentsCount, userLike, sharesCount, userShare] = await Promise.all([
-                this.likeRepo.count({ where: { postId: post.id } }),
-                this.postRepo.manager.count("comments", { where: { postId: post.id } }),
-                this.likeRepo.findOne({ where: { postId: post.id, userId } }),
-                this.shareRepo.count({ where: { postId: post.id } }),
-                this.shareRepo.findOne({ where: { postId: post.id, userId } }),
-            ]);
+            const [posts, total] = await this.postRepo.findAndCount({
+                where: [
+                    { authorId: In(followingIds.length ? followingIds : [userId]) },
+                    ...(sharedPostIds.length ? [{ id: In(sharedPostIds) }] : []),
+                ],
+                order: { createdAt: "DESC" },
+                skip,
+                take: limit,
+                relations: ["author"],
+            });
 
-            // find who shared this post among following
-            const sharedBy = sharedByFollowing.find((s) => s.postId === post.id && s.userId !== post.authorId);
+            const data = await Promise.all(
+                posts.map(async (post) => {
+                    const [likesCount, commentsCount, userLike, sharesCount, userShare] = await Promise.all([
+                        this.likeRepo.count({ where: { postId: post.id } }),
+                        this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+                        this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+                        this.shareRepo.count({ where: { postId: post.id } }),
+                        this.shareRepo.findOne({ where: { postId: post.id, userId } }),
+                    ]);
 
-            return {
-                ...post,
-                _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
-                isLikedByMe: !!userLike,
-                isSharedByMe: !!userShare,
-                sharedBy: sharedBy ? {
-                    username: sharedBy.user.username,
-                    avatarUrl: sharedBy.user.avatarUrl,
-                } : null,
-            };
-        })
-    );
+                    const sharedBy = sharedByFollowing.find((s) => s.postId === post.id && s.userId !== post.authorId);
 
-    return { data, total, page, limit, hasMore: skip + data.length < total };
-}
+                    return {
+                        ...post,
+                        _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
+                        isLikedByMe: !!userLike,
+                        isSharedByMe: !!userShare,
+                        sharedBy: sharedBy ? {
+                            username: sharedBy.user.username,
+                            avatarUrl: sharedBy.user.avatarUrl,
+                        } : null,
+                    };
+                })
+            );
 
+            return { data, total, page, limit, hasMore: skip + data.length < total };
+        } catch (err) { // ← catch closes the try block properly, INSIDE the class
+            console.error('🔴 FEED ERROR:', err);
+            throw err;
+        }
+    } // ← getFeed method closes here
 
     async toggleLike(userId: string, postId: string) {
         const existing = await this.likeRepo.findOne({ where: { userId, postId } });
 
         if (existing) {
-            await this.likeRepo.remove(existing);
+            await this.likeRepo.remove(existing); // now safe, existing is not null
             return { liked: false };
         }
 
@@ -117,15 +124,15 @@ export class PostsService {
     }
 
     async toggleShare(userId: string, postId: string) {
-    const existing = await this.shareRepo.findOne({ where: { userId, postId } });
+        const existing = await this.shareRepo.findOne({ where: { userId, postId } });
 
-    if (existing) {
-        await this.shareRepo.remove(existing);
-        return { shared: false };
-    }
+        if (existing) {
+            await this.shareRepo.remove(existing); // now safe, existing is not null
+            return { shared: false };
+        }
 
-    const share = this.shareRepo.create({ userId, postId });
-    await this.shareRepo.save(share);
-    return { shared: true };
+        const share = this.shareRepo.create({ userId, postId });
+        await this.shareRepo.save(share);
+        return { shared: true };
     }
-}
+} // ← class closes here

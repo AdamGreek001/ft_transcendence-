@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { PostsService } from "./posts.service";
+import { Comment } from "../../entities/comment.entity";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 
 @ApiTags("Posts")
@@ -17,7 +18,12 @@ export class PostsController {
         @Query("page") page = 1,
         @Query("limit") limit = 20,
     ) {
+        try {
         return this.postsService.getFeed(req.user.sub, +page, +limit);
+        } catch (err) {
+            console.error('🔴 GET FEED ERROR:', err);
+            throw err;
+        }
     }
 
     @Post()

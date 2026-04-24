@@ -52,6 +52,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup("api/docs", app, document);
 
+  
   const port = config.get<number>("BACKEND_PORT", 3001);
   await app.listen(port);
   console.log(`Application running on port ${port}`);
