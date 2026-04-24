@@ -780,11 +780,16 @@ export default function FeedPage() {
   return () => clearInterval(interval);
 }, []);
 
-  async function handleAddPost(text: string, image?: File) {
+ async function handleAddPost(text: string, image?: File) {
   try {
-    console.log("Sending to API:", text);
-    const created = await api.posts.create(text, undefined);
-    console.log("Created post:", created);
+    let imageUrl: string | undefined;
+
+    if (image) {
+      const uploaded = await api.media.uploadPost(image);
+      imageUrl = uploaded.url;
+    }
+
+    const created = await api.posts.create(text, imageUrl);
     setPosts((prev) => [created, ...prev]);
   } catch (err: any) {
     console.error("Create post error:", err);
