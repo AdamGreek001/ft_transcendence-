@@ -19,6 +19,8 @@ export default function OAuthCallbackPage() {
 
     const token = searchParams.get("token");
     const user = searchParams.get("user");
+    const requires2fa = searchParams.get("requires2fa");
+    const userId = searchParams.get("userId");
 
     if (token && user && !called.current) {
       called.current = true;
@@ -31,8 +33,10 @@ export default function OAuthCallbackPage() {
         console.error("Failed to store auth:", err);
         router.push("/login?error=oauth_failed");
       }
+    } else if (requires2fa === "true" && userId && !called.current) {
+      called.current = true;
+      router.push(`/2fa?userId=${userId}`);
     } else if (!token && !user && !called.current) {
-      // If no token/user in URL, check for code (fallback for old flow)
       const code = searchParams.get("code");
       if (code) {
         called.current = true;
