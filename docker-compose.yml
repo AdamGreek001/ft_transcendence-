@@ -170,6 +170,58 @@ services:
     restart: unless-stopped
     env_file: .env
 
+  # ─── cAdvisor (Container Metrics) ────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ft_cadvisor
+    privileged: true
+    command:
+      - "--docker_only=true"
+      - "--store_container_labels=true"
+      - "--housekeeping_interval=10s"
+    ports:
+      - "8888:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ─── Nginx Prometheus Exporter ───────────────────────────────
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.1
+    container_name: ft_nginx_exporter
+    command:
+      - "--nginx.scrape-uri=http://nginx:80/metrics"
+    ports:
+      - "9113:9113"
+    depends_on:
+      nginx:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ─── PostgreSQL Exporter ─────────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: ft_postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-transcendence}:${POSTGRES_PASSWORD:-transcendence_password}@postgres:5432/${POSTGRES_DB:-transcendence}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
 # ─── Named Volumes ──────────────────────────────────────────
 volumes:
   postgres_data:

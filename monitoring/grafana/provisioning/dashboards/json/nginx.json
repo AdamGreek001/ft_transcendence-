@@ -1,0 +1,218 @@
+{
+    "annotations": { "list": [] },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 2,
+    "id": null,
+    "links": [
+        { "title": "← Overview", "url": "/grafana/d/ft-transcendence-overview", "type": "link", "icon": "arrow-left", "targetBlank": false }
+    ],
+    "panels": [
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+            "id": 100,
+            "title": "🌐 NGINX STATUS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "thresholds" },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "value": null, "color": "#F2495C" },
+                            { "value": 1, "color": "#73BF69" }
+                        ]
+                    },
+                    "mappings": [
+                        { "options": { "0": { "text": "OFFLINE", "color": "#F2495C", "index": 0 }, "1": { "text": "ONLINE", "color": "#73BF69", "index": 1 } }, "type": "value" }
+                    ]
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+            "id": 1,
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Nginx Status",
+            "type": "stat",
+            "targets": [ { "expr": "up{job=\"nginx\"}", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#8AB8FF" },
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "value": null, "color": "#73BF69" },
+                            { "value": 100, "color": "#FF9830" },
+                            { "value": 500, "color": "#F2495C" }
+                        ]
+                    }
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+            "id": 2,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [ { "expr": "nginx_connections_active", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#B877D9" },
+                    "unit": "reqps"
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+            "id": 3,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Request Rate",
+            "type": "stat",
+            "targets": [ { "expr": "rate(nginx_http_requests_total[5m])", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#FF9830" },
+                    "unit": "short"
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+            "id": 4,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Dropped Connections",
+            "type": "stat",
+            "targets": [ { "expr": "nginx_connections_accepted - nginx_connections_handled", "legendFormat": "" } ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+            "id": 101,
+            "title": "📈 CONNECTION DETAILS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "short",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 20,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth",
+                        "stacking": { "mode": "normal" }
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+            "id": 5,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }, "tooltip": { "mode": "multi" } },
+            "title": "Connections by State (Stacked)",
+            "type": "timeseries",
+            "targets": [
+                { "expr": "nginx_connections_active", "legendFormat": "active" },
+                { "expr": "nginx_connections_reading", "legendFormat": "reading" },
+                { "expr": "nginx_connections_writing", "legendFormat": "writing" },
+                { "expr": "nginx_connections_waiting", "legendFormat": "waiting" }
+            ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "reqps",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 20,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+            "id": 6,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }, "tooltip": { "mode": "multi" } },
+            "title": "Request Rate Over Time",
+            "type": "timeseries",
+            "targets": [ { "expr": "rate(nginx_http_requests_total[5m])", "legendFormat": "requests/s" } ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+            "id": 102,
+            "title": "🔄 THROUGHPUT",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "connps",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 15,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+            "id": 7,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
+            "title": "New Connections Rate",
+            "type": "timeseries",
+            "targets": [
+                { "expr": "rate(nginx_connections_accepted[5m])", "legendFormat": "accepted/s" },
+                { "expr": "rate(nginx_connections_handled[5m])", "legendFormat": "handled/s" }
+            ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "continuous-RdYlGr", "fixedColor": "#F2495C" },
+                    "unit": "short",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 15,
+                        "gradientMode": "scheme",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+            "id": 8,
+            "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+            "title": "Dropped Connections Over Time",
+            "type": "timeseries",
+            "targets": [ { "expr": "nginx_connections_accepted - nginx_connections_handled", "legendFormat": "dropped" } ]
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": ["ft_transcendence", "nginx"],
+    "templating": { "list": [] },
+    "time": { "from": "now-1h", "to": "now" },
+    "title": "Nginx Traffic",
+    "uid": "ft-nginx-traffic",
+    "description": "Nginx reverse proxy traffic monitoring"
+}

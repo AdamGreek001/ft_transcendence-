@@ -1,152 +1,230 @@
 {
-    "annotations": {
-        "list": []
-    },
+    "annotations": { "list": [] },
     "editable": true,
     "fiscalYearStartMonth": 0,
-    "graphTooltip": 1,
+    "graphTooltip": 2,
     "id": null,
-    "links": [],
+    "links": [
+        { "title": "Docker Containers", "url": "/grafana/d/ft-docker-containers", "type": "link", "icon": "dashboard", "targetBlank": false },
+        { "title": "Nginx Traffic", "url": "/grafana/d/ft-nginx-traffic", "type": "link", "icon": "dashboard", "targetBlank": false },
+        { "title": "PostgreSQL", "url": "/grafana/d/ft-postgresql", "type": "link", "icon": "dashboard", "targetBlank": false }
+    ],
     "panels": [
         {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+            "id": 100,
+            "title": "🏥 HEALTH STATUS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
             "fieldConfig": {
                 "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "unit": "reqps"
+                    "color": { "mode": "thresholds" },
+                    "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "#F2495C" }, { "value": 1, "color": "#73BF69" }] },
+                    "mappings": [{ "options": { "0": { "text": "DOWN", "color": "#F2495C", "index": 0 }, "1": { "text": "UP", "color": "#73BF69", "index": 1 } }, "type": "value" }]
                 }
             },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 0
-            },
+            "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
             "id": 1,
-            "title": "Request Rate",
-            "type": "timeseries",
-            "targets": [
-                {
-                    "expr": "rate(http_requests_total{job=\"backend\"}[5m])",
-                    "legendFormat": "{{method}} {{status}}"
-                }
-            ]
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "unit": "s"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 0
-            },
-            "id": 2,
-            "title": "Request Latency (p95)",
-            "type": "timeseries",
-            "targets": [
-                {
-                    "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"backend\"}[5m]))",
-                    "legendFormat": "p95"
-                }
-            ]
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "unit": "reqps"
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 0,
-                "y": 8
-            },
-            "id": 3,
-            "title": "Error Rate (5xx)",
-            "type": "timeseries",
-            "targets": [
-                {
-                    "expr": "rate(http_requests_total{job=\"backend\", status=~\"5..\"}[5m])",
-                    "legendFormat": "5xx errors"
-                }
-            ]
-        },
-        {
-            "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-            },
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "thresholds"
-                    },
-                    "thresholds": {
-                        "steps": [
-                            {
-                                "value": 0,
-                                "color": "green"
-                            },
-                            {
-                                "value": 1,
-                                "color": "red"
-                            }
-                        ]
-                    }
-                }
-            },
-            "gridPos": {
-                "h": 8,
-                "w": 12,
-                "x": 12,
-                "y": 8
-            },
-            "id": 4,
-            "title": "Service Health",
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Prometheus",
             "type": "stat",
-            "targets": [
-                {
-                    "expr": "up{job=~\"backend|nginx\"}",
-                    "legendFormat": "{{job}}"
+            "targets": [{ "expr": "up{job=\"prometheus\"}", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "thresholds" },
+                    "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "#F2495C" }, { "value": 1, "color": "#73BF69" }] },
+                    "mappings": [{ "options": { "0": { "text": "DOWN", "color": "#F2495C", "index": 0 }, "1": { "text": "UP", "color": "#73BF69", "index": 1 } }, "type": "value" }]
                 }
-            ]
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+            "id": 2,
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Nginx",
+            "type": "stat",
+            "targets": [{ "expr": "up{job=\"nginx\"}", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "thresholds" },
+                    "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "#F2495C" }, { "value": 1, "color": "#73BF69" }] },
+                    "mappings": [{ "options": { "0": { "text": "DOWN", "color": "#F2495C", "index": 0 }, "1": { "text": "UP", "color": "#73BF69", "index": 1 } }, "type": "value" }]
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+            "id": 3,
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "PostgreSQL",
+            "type": "stat",
+            "targets": [{ "expr": "up{job=\"postgres\"}", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "thresholds" },
+                    "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "#F2495C" }, { "value": 1, "color": "#73BF69" }] },
+                    "mappings": [{ "options": { "0": { "text": "DOWN", "color": "#F2495C", "index": 0 }, "1": { "text": "UP", "color": "#73BF69", "index": 1 } }, "type": "value" }]
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+            "id": 4,
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "cAdvisor",
+            "type": "stat",
+            "targets": [{ "expr": "up{job=\"cadvisor\"}", "legendFormat": "" }]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+            "id": 101,
+            "title": "🖥️ CONTAINERS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "continuous-BlYlRd" },
+                    "unit": "percentunit",
+                    "min": 0, "max": 1,
+                    "custom": { "lineWidth": 2, "fillOpacity": 15, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true }
+                }
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+            "id": 5,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
+            "title": "CPU Usage",
+            "type": "timeseries",
+            "targets": [{ "expr": "rate(container_cpu_usage_seconds_total{id=~\"/docker/.*\", cpu=\"total\"}[5m])", "legendFormat": "{{ name }}{{ id }}" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "continuous-BlYlRd" },
+                    "unit": "bytes",
+                    "custom": { "lineWidth": 2, "fillOpacity": 15, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true }
+                }
+            },
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+            "id": 6,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
+            "title": "Memory Usage",
+            "type": "timeseries",
+            "targets": [{ "expr": "container_memory_usage_bytes{id=~\"/docker/.*\"}", "legendFormat": "{{ name }}{{ id }}" }]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+            "id": 102,
+            "title": "🌐 NGINX TRAFFIC",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#8AB8FF" }, "unit": "short" }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 0, "y": 15 },
+            "id": 7,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [{ "expr": "nginx_connections_active", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#B877D9" }, "unit": "reqps" }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 6, "y": 15 },
+            "id": 8,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Request Rate",
+            "type": "stat",
+            "targets": [{ "expr": "rate(nginx_http_requests_total[5m])", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#73BF69" }, "unit": "short" }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 12, "y": 15 },
+            "id": 9,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Waiting Connections",
+            "type": "stat",
+            "targets": [{ "expr": "nginx_connections_waiting", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#FF9830" }, "unit": "short" }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 18, "y": 15 },
+            "id": 10,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Total Requests",
+            "type": "stat",
+            "targets": [{ "expr": "nginx_http_requests_total", "legendFormat": "" }]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+            "id": 103,
+            "title": "🐘 POSTGRESQL",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#56A4DA" }, "unit": "short" }
+            },
+            "gridPos": { "h": 4, "w": 8, "x": 0, "y": 20 },
+            "id": 12,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [{ "expr": "sum(pg_stat_activity_count{datname=~\".+\"})", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#B877D9" }, "unit": "bytes" }
+            },
+            "gridPos": { "h": 4, "w": 8, "x": 8, "y": 20 },
+            "id": 13,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Database Size",
+            "type": "stat",
+            "targets": [{ "expr": "pg_database_size_bytes{datname=\"transcendence\"}", "legendFormat": "" }]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": { "color": { "mode": "fixed", "fixedColor": "#73BF69" }, "unit": "ops" }
+            },
+            "gridPos": { "h": 4, "w": 8, "x": 16, "y": 20 },
+            "id": 14,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Commits/sec",
+            "type": "stat",
+            "targets": [{ "expr": "rate(pg_stat_database_xact_commit{datname=\"transcendence\"}[5m])", "legendFormat": "" }]
         }
     ],
     "schemaVersion": 39,
-    "tags": [
-        "ft_transcendence"
-    ],
-    "templating": {
-        "list": []
-    },
-    "time": {
-        "from": "now-1h",
-        "to": "now"
-    },
+    "tags": ["ft_transcendence"],
+    "templating": { "list": [] },
+    "time": { "from": "now-1h", "to": "now" },
     "title": "ft_transcendence Overview",
-    "uid": "ft-transcendence-overview"
+    "uid": "ft-transcendence-overview",
+    "description": "Full infrastructure overview"
 }
