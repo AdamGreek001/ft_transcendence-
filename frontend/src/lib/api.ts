@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost/api";
 
 const instance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -20,6 +20,12 @@ instance.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
+
+  // Let the browser set the correct Content-Type (with boundary) for FormData
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+
   return config;
 });
 
@@ -99,9 +105,15 @@ export const api = {
   uploadPost: async (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return apiClient.post<{ url: string }>("/media/upload/post", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return apiClient.post<{ url: string }>("/media/upload/post", formData);
+  },
+},
+
+  chat: {
+  uploadFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiClient.post<{ url: string }>("/chat/upload", formData);
   },
 },
 };

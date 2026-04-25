@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { FileUploadModal } from "@/components/chat/FileUploadModal";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
-import { apiClient } from "@/lib/api";
+import { apiClient, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { useNotificationsStore } from "@/store/notifications";
@@ -509,13 +509,7 @@ export default function MessagesPage() {
 
         try {
             for (const file of files) {
-                const formData = new FormData();
-                formData.append("file", file);
-
-                const response = await apiClient.post<{ url: string }>(
-                    "/chat/upload",
-                    formData
-                );
+                const response = await api.chat.uploadFile(file);
 
                 // Send message with file URL
                 const fileMessage = `📎 ${file.name}: ${response.url}`;
