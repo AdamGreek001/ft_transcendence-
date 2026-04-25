@@ -92,6 +92,14 @@ export class UsersController {
     return this.usersService.searchUsers(q || "", userId);
   }
 
+  @Get("suggestions")
+  @SkipThrottle()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Get suggested users to follow" })
+  async getSuggestions(@Req() req: any, @Query("limit") limit?: number) {
+    return this.usersService.getSuggestions(this.getAuthUserId(req), limit || 5);
+  }
+
   @Post(":id/follow")
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Follow a user" })
@@ -109,6 +117,7 @@ export class UsersController {
   }
 
   @Get(":username")
+  @SkipThrottle()
   @ApiOperation({ summary: "Get user profile by username" })
   async getProfile(@Param("username") username: string) {
     return this.usersService.findByUsername(username);

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient as api } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 
 interface UserData {
   id: string;
@@ -15,6 +16,7 @@ interface UserData {
 }
 
 export default function SettingsPage() {
+  const { user: authUser, accessToken, setAuth } = useAuthStore();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -53,6 +55,14 @@ export default function SettingsPage() {
         username: username,
         bio: bio,
       });
+
+      // Sync the auth store and localStorage with the new user data
+      // so that profile navigation, sidebar, etc. all use the updated username
+      if (authUser && accessToken) {
+        const updatedUser = { ...authUser, username, displayName };
+        setAuth(accessToken, updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      }
 
       alert("Profile updated successfully!");
     } catch (err: any) {

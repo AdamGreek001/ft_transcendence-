@@ -53,6 +53,34 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const [isStartChatBusy, setIsStartChatBusy] = useState(false);
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
 
+    const [error, setError] = useState<string | null>(null);
+
+    const loadProfile = async () => {
+        const resolved = await params;
+        setUsername(resolved.username);
+        setIsLoading(true);
+        setIsFollowing(false);
+        setError(null);
+
+        try {
+            const data = await apiClient.get<UserProfileResponse>(`/users/${resolved.username}`);
+            setProfile(data);
+        } catch (err: any) {
+            console.error("Failed to fetch profile:", err);
+            const status = err?.response?.status;
+            if (status === 404) {
+                setProfile(null);
+                setError("not_found");
+            } else {
+                // Keep existing profile if we had one (transient error)
+                setProfile(prev => prev);
+                setError("load_error");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         let cancelled = false;
 
@@ -62,14 +90,23 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             setUsername(resolved.username);
             setIsLoading(true);
             setIsFollowing(false);
+            setError(null);
 
             try {
                 const data = await apiClient.get<UserProfileResponse>(`/users/${resolved.username}`);
                 if (cancelled) return;
                 setProfile(data);
-            } catch (error) {
-                console.error("Failed to fetch profile:", error);
-                if (!cancelled) setProfile(null);
+            } catch (err: any) {
+                console.error("Failed to fetch profile:", err);
+                if (cancelled) return;
+                const status = err?.response?.status;
+                if (status === 404) {
+                    setProfile(null);
+                    setError("not_found");
+                } else {
+                    setProfile(null);
+                    setError("load_error");
+                }
             } finally {
                 if (!cancelled) setIsLoading(false);
             }
@@ -183,7 +220,19 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         return (
             <div className="mx-auto max-w-3xl px-4 py-8">
                 <div className="rounded-xl border border-gray-800/50 bg-[#1a1a1f] p-6 shadow-sm text-gray-400">
-                    User @{username} not found.
+                    {error === "not_found" ? (
+                        <>User @{username} not found.</>
+                    ) : (
+                        <div className="flex flex-col items-center gap-3">
+                            <span>Failed to load profile. Please try again.</span>
+                            <button
+                                onClick={loadProfile}
+                                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition"
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         );

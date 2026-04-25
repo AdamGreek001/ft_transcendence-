@@ -206,4 +206,36 @@ export class UsersService {
       relations: ["following"],
     });
   }
+
+  async getSuggestions(currentUserId: string, limit = 5) {
+    // Get IDs of users the current user already follows
+    const following = await this.followRepo.find({
+      where: { followerId: currentUserId },
+      select: ["followingId"],
+    });
+    const followingIds = following.map((f) => f.followingId);
+
+    // Build query for users NOT followed and NOT the current user
+    const qb = this.userRepo
+      .createQueryBuilder("user")
+      .select(["user.id", "user.username", "user.displayName", "user.avatarUrl"])
+      .where("user.id != :currentUserId", { currentUserId });
+
+    if (followingIds.length > 0) {
+      qb.andWhere("user.id NOT IN (:...followingIds)", { followingIds });
+    }
+
+    // Order by most recently created so new users show up
+    qb.orderBy("user.createdAt", "DESC").take(limit);
+
+    const users = await qb.getMany();
+
+    return users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.displayName,
+      avatarUrl: u.avatarUrl,
+      isFollowing: false,
+    }));
+  }
 }

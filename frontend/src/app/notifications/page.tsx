@@ -395,24 +395,23 @@ export default function NotificationsPage() {
         return true;
     });
 
-    const suggestedUsers = Array.from(
-        notifications.reduce((map, notif) => {
-            const actor = notif.users[0];
-            if (!actor?.username) return map;
-            if (!map.has(actor.username)) {
-                map.set(actor.username, actor);
+    const [suggestedUsers, setSuggestedUsers] = useState<UserSuggestion[]>([]);
+
+    // Fetch "Who to follow" suggestions from the backend
+    useEffect(() => {
+        if (!isHydrated || !isAuthenticated) return;
+
+        const fetchSuggestions = async () => {
+            try {
+                const data = await apiClient.get<UserSuggestion[]>("/users/suggestions");
+                setSuggestedUsers(data || []);
+            } catch (error) {
+                console.error("Failed to fetch suggestions:", error);
             }
-            return map;
-        }, new Map<string, Notification["users"][number]>()),
-    )
-        .map(([, user]) => user)
-        .filter((suggested) => {
-            const username = suggested.username?.toLowerCase();
-            if (!username) return false;
-            if (user?.username && username === user.username.toLowerCase()) return false;
-            return !followingUsernames.has(username);
-        })
-        .slice(0, 5);
+        };
+
+        fetchSuggestions();
+    }, [isHydrated, isAuthenticated]);
 
     const normalizeAvatarUrl = (avatarUrl?: string | null, username?: string) => {
         if (!avatarUrl) {
@@ -706,11 +705,14 @@ export default function NotificationsPage() {
                                     ? suggested.username
                                     : `@${suggested.username}`;
                                 const profilePath = `/profile/${handle.replace(/^@/, "")}`;
+                                const displayName = suggested.displayName || suggested.username;
+                                const avatarSrc = normalizeAvatarUrl(suggested.avatarUrl, suggested.username);
+                                
                                 return (
-                                    <div key={handle} className="flex items-center gap-3">
-                                        <Avatar src={suggested.avatarUrl} alt={suggested.name} size={40} />
+                                    <div key={suggested.id} className="flex items-center gap-3">
+                                        <Avatar src={avatarSrc} alt={displayName} size={40} />
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-white truncate">{suggested.name}</p>
+                                            <p className="font-medium text-white truncate">{displayName}</p>
                                             <p className="text-sm text-gray-500 truncate">{handle}</p>
                                         </div>
                                         <Link
