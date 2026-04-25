@@ -214,8 +214,8 @@
             "title": "Deadlocks & Conflicts",
             "type": "timeseries",
             "targets": [
-                { "expr": "rate(pg_stat_database_deadlocks_total{datname=\"transcendence\"}[5m])", "legendFormat": "deadlocks/s" },
-                { "expr": "rate(pg_stat_database_conflicts_total{datname=\"transcendence\"}[5m])", "legendFormat": "conflicts/s" }
+                { "expr": "rate(pg_stat_database_deadlocks{datname=\"transcendence\"}[5m])", "legendFormat": "deadlocks/s" },
+                { "expr": "rate(pg_stat_database_conflicts{datname=\"transcendence\"}[5m])", "legendFormat": "conflicts/s" }
             ]
         }
     ],
