@@ -44,6 +44,7 @@ interface Post {
   };
   isLikedByMe?: boolean;
   isSharedByMe?: boolean;
+  isSavedByMe?: boolean;
   sharedBy?: {
     username: string;
     avatarUrl: string | null;
@@ -57,7 +58,7 @@ interface Post {
 // AVATAR URL NORMALIZER (same as AppSidebar)
 // ============================================================
 
-function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
+export function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
   if (!avatarUrl) {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
   }
@@ -543,13 +544,13 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
 // POST CARD
 // ============================================================
 
-function PostCard({ id, content, imageUrl, createdAt, author, _count,
-  isLikedByMe, isSharedByMe, sharedBy, currentUser }: Post & {
+export function PostCard({ id, content, imageUrl, createdAt, author, _count,
+  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser }: Post & {
   currentUser: any;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
   const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(isSavedByMe ?? false);
   const [showComments, setShowComments] = useState(false);
   const [shared, setShared] = useState(isSharedByMe ?? false);
   const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
@@ -572,10 +573,16 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
   }
 }
 
-  function handleSave() {
-    setSaved(!saved);
-    // TODO: api.posts.save(id)
+  async function handleSave() {
+  const wasSaved = saved;
+  setSaved(!wasSaved);
+  try {
+    await api.posts.save(id);
+  } catch (err) {
+    setSaved(wasSaved);
+    console.error("Save error:", err);
   }
+}
 
   async function handleShare() {
   // optimistic update

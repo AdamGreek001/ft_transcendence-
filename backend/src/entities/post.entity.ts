@@ -13,6 +13,8 @@ import { User } from "./user.entity";
 import { Comment } from "./comment.entity";
 import { Like } from "./like.entity";
 import { Share } from "./share.entity";
+import { Save } from "./save.entity";
+
 
 @Entity("posts")
 export class Post {
@@ -48,4 +50,7 @@ export class Post {
 
     @OneToMany(() => Share, (share) => share.post)
     shares: Share[];
+
+    @OneToMany(() => Save, (save) => save.post)
+    saves: Save[];
 }

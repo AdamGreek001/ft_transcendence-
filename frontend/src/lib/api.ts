@@ -92,6 +92,12 @@ export const api = {
     apiClient.post<{ shared: boolean }>(`/posts/${postId}/share`),
   delete: (postId: string) =>
     apiClient.delete<void>(`/posts/${postId}`),
+  save: (postId: string) =>
+    apiClient.post<{ saved: boolean }>(`/posts/${postId}/save`),
+  getByUsername: (username: string, page = 1) =>
+    apiClient.get<any>(`/posts/user/${username}?page=${page}`),
+  getSaved: (page = 1) =>
+    apiClient.get<any>(`/posts/saved?page=${page}`),
 },
 
   comments: {

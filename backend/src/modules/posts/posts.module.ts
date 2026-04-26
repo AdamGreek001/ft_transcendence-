@@ -8,10 +8,11 @@ import { Follow } from "../../entities/follow.entity";
 import { Share } from "../../entities/share.entity";
 import { AuthModule } from "../auth/auth.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { Save } from "../../entities/save.entity";
 
 @Module({
     imports: [
-            TypeOrmModule.forFeature([Post, Like, Follow, Share]),
+            TypeOrmModule.forFeature([Post, Like, Follow, Share, Save]),
         AuthModule,
         forwardRef(() => NotificationsModule),
     ],

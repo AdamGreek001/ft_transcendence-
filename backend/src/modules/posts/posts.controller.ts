@@ -43,7 +43,18 @@ export class PostsController {
     async create(@Req() req: any, @Body() body: { content: string; imageUrl?: string }) {
         return this.postsService.create(this.getAuthUserId(req), body.content, body.imageUrl);
     }
-
+    
+    @Get("saved")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: "Get saved posts" })
+    async getSaved(
+        @Req() req: any,
+        @Query("page") page = 1,
+        @Query("limit") limit = 20,
+    ) {
+        return this.postsService.getSavedPosts(req.user.sub, +page, +limit);
+    }
     @Get(":id")
     @ApiOperation({ summary: "Get a post by ID" })
     async findOne(@Param("id") id: string) {
@@ -65,4 +76,23 @@ export class PostsController {
     async toggleShare(@Req() req: any, @Param("id") postId: string) {
         return this.postsService.toggleShare(this.getAuthUserId(req), postId);
 }
+    @Post(":id/save")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: "Save or unsave a post" })
+    async toggleSave(@Req() req: any, @Param("id") postId: string) {
+        return this.postsService.toggleSave(this.getAuthUserId(req), postId);
+    }
+
+    @Get("user/:username")
+    @ApiOperation({ summary: "Get posts by username" })
+    async getUserPosts(
+        @Param("username") username: string,
+        @Query("page") page = 1,
+        @Query("limit") limit = 20,
+        @Req() req: any,
+    ) {
+        return this.postsService.getUserPosts(username, req.user?.sub, +page, +limit);
+    }
+    
 }

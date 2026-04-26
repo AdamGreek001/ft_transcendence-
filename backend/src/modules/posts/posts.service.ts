@@ -4,6 +4,7 @@ import { Repository, In } from "typeorm";
 import { Post } from "../../entities/post.entity";
 import { Like } from "../../entities/like.entity";
 import { Share } from "../../entities/share.entity";
+import { Save } from "../../entities/save.entity";
 import { Follow } from "../../entities/follow.entity";
 import { Comment } from "../../entities/comment.entity"; // ← ADD THIS IMPORT
 import { NotificationsService } from "../notifications/notifications.service";
@@ -15,6 +16,7 @@ export class PostsService {
         @InjectRepository(Like) private readonly likeRepo: Repository<Like>,
         @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
         @InjectRepository(Share) private readonly shareRepo: Repository<Share>,
+        @InjectRepository(Save) private readonly saveRepo: Repository<Save>,
         @Inject(forwardRef(() => NotificationsService))
         private readonly notificationsService: NotificationsService,
     ) { }
@@ -74,12 +76,13 @@ export class PostsService {
 
             const data = await Promise.all(
                 posts.map(async (post) => {
-                    const [likesCount, commentsCount, userLike, sharesCount, userShare] = await Promise.all([
+                    const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
                         this.likeRepo.count({ where: { postId: post.id } }),
                         this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
                         this.likeRepo.findOne({ where: { postId: post.id, userId } }),
                         this.shareRepo.count({ where: { postId: post.id } }),
                         this.shareRepo.findOne({ where: { postId: post.id, userId } }),
+                        this.saveRepo.findOne({ where: { postId: post.id, userId } }),
                     ]);
 
                     const sharedBy = sharedByFollowing.find((s) => s.postId === post.id && s.userId !== post.authorId);
@@ -89,6 +92,7 @@ export class PostsService {
                         _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
                         isLikedByMe: !!userLike,
                         isSharedByMe: !!userShare,
+                        isSavedByMe: !!userSave,
                         sharedBy: sharedBy ? {
                             username: sharedBy.user.username,
                             avatarUrl: sharedBy.user.avatarUrl,
@@ -135,4 +139,77 @@ export class PostsService {
         await this.shareRepo.save(share);
         return { shared: true };
     }
-} // ← class closes here
+
+    async toggleSave(userId: string, postId: string) {
+    const existing = await this.saveRepo.findOne({ where: { userId, postId } });
+    if (existing) {
+        await this.saveRepo.remove(existing);
+        return { saved: false };
+    }
+    const save = this.saveRepo.create({ userId, postId });
+    await this.saveRepo.save(save);
+    return { saved: true };
+}
+
+async getUserPosts(username: string, viewerId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    const [posts, total] = await this.postRepo.findAndCount({
+        where: { author: { username } },
+        order: { createdAt: "DESC" },
+        skip,
+        take: limit,
+        relations: ["author"],
+    });
+
+    const data = await Promise.all(
+        posts.map(async (post) => {
+            const [likesCount, commentsCount, userLike, userSave] = await Promise.all([
+                this.likeRepo.count({ where: { postId: post.id } }),
+                this.postRepo.manager.count("comments", { where: { postId: post.id } }),
+                viewerId ? this.likeRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+                viewerId ? this.saveRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+            ]);
+            return {
+                ...post,
+                _count: { likes: likesCount, comments: commentsCount },
+                isLikedByMe: !!userLike,
+                isSavedByMe: !!userSave,
+            };
+        })
+    );
+
+    return { data, total, page, limit, hasMore: skip + data.length < total };
+}
+
+async getSavedPosts(userId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    const [saves, total] = await this.saveRepo.findAndCount({
+        where: { userId },
+        order: { createdAt: "DESC" },
+        skip,
+        take: limit,
+        relations: ["post", "post.author"],
+    });
+
+    const data = await Promise.all(
+        saves.map(async (save) => {
+            const post = save.post;
+            const [likesCount, commentsCount, userLike] = await Promise.all([
+                this.likeRepo.count({ where: { postId: post.id } }),
+                this.postRepo.manager.count("comments", { where: { postId: post.id } }),
+                this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+            ]);
+            return {
+                ...post,
+                _count: { likes: likesCount, comments: commentsCount },
+                isLikedByMe: !!userLike,
+                isSavedByMe: true,
+            };
+        })
+    );
+
+    return { data, total, page, limit, hasMore: skip + data.length < total };
+}
+} 
