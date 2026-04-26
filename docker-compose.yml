@@ -145,6 +145,12 @@ services:
       context: ./monitoring/prometheus
       dockerfile: Dockerfile
     container_name: ft_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.external-url=/prometheus/"
     volumes:
       - prometheus_data:/prometheus
     networks:
@@ -246,6 +252,7 @@ services:
     container_name: ft_kibana
     environment:
       - SERVER_BASEPATH=/kibana
+      - SERVER_REWRITEBASEPATH=true
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
       - elasticsearch
