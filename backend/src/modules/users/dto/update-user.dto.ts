@@ -8,12 +8,12 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  @Length(0, 50)
+  @Length(0, 35)
   displayName?: string;
 
   @IsOptional()
   @IsString()
-  @Length(0, 500)
+  @Length(0, 160)
   bio?: string;
 
   @IsOptional()

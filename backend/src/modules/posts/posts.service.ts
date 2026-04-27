@@ -54,60 +54,89 @@ export class PostsService {
     const followingIds = follows.map((f) => f.followingId);
     followingIds.push(userId);
 
-    // get hidden post ids for this user
     const hiddenPosts = await this.hiddenPostRepo.find({
         where: { userId },
         select: ["postId"],
     });
     const hiddenPostIds = hiddenPosts.map((h) => h.postId);
 
+    // get all shares by following including self
     const sharedByFollowing = await this.shareRepo.find({
         where: { userId: In(followingIds) },
-        relations: ["user"],
+        relations: ["user", "post", "post.author"],
+        order: { createdAt: "DESC" },
     });
-    const sharedPostIds = sharedByFollowing.map((s) => s.postId);
 
-    const queryBuilder = this.postRepo.createQueryBuilder("post")
-        .leftJoinAndSelect("post.author", "author")
-        .where("post.authorId IN (:...authorIds)", { authorIds: followingIds })
-        .andWhere(hiddenPostIds.length > 0 ? "post.id NOT IN (:...hiddenIds)" : "1=1",
-            hiddenPostIds.length > 0 ? { hiddenIds: hiddenPostIds } : {})
-        .orderBy("post.createdAt", "DESC")
-        .skip(skip)
-        .take(limit);
+    // get original posts
+    const [posts, total] = await this.postRepo.findAndCount({
+        where: [
+            { authorId: In(followingIds) },
+        ],
+        order: { createdAt: "DESC" },
+        relations: ["author"],
+    });
 
-    const [posts, total] = await queryBuilder.getManyAndCount();
+    // filter hidden
+    const filteredPosts = posts.filter(p => !hiddenPostIds.includes(p.id));
 
-    const data = await Promise.all(
-        posts.map(async (post) => {
-            const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
-                this.likeRepo.count({ where: { postId: post.id } }),
-                this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
-                this.likeRepo.findOne({ where: { postId: post.id, userId } }),
-                this.shareRepo.count({ where: { postId: post.id } }),
-                this.shareRepo.findOne({ where: { postId: post.id, userId } }),
-                this.saveRepo.findOne({ where: { postId: post.id, userId } }),
-            ]);
+    // build feed items — original posts + shared reposts
+    const allItems: any[] = [];
 
-            const sharedBy = sharedByFollowing.find(
-                (s) => s.postId === post.id && s.userId !== post.authorId
-            );
+    for (const post of filteredPosts) {
+        const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
+            this.likeRepo.count({ where: { postId: post.id } }),
+            this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+            this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+            this.shareRepo.count({ where: { postId: post.id } }),
+            this.shareRepo.findOne({ where: { postId: post.id, userId } }),
+            this.saveRepo.findOne({ where: { postId: post.id, userId } }),
+        ]);
 
-            return {
-                ...post,
-                _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
-                isLikedByMe: !!userLike,
-                isSharedByMe: !!userShare,
-                isSavedByMe: !!userSave,
-                sharedBy: sharedBy ? {
-                    username: sharedBy.user.username,
-                    avatarUrl: sharedBy.user.avatarUrl,
-                } : null,
-            };
-        })
-    );
+        allItems.push({
+            ...post,
+            _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
+            isLikedByMe: !!userLike,
+            isSharedByMe: !!userShare,
+            isSavedByMe: !!userSave,
+            sharedBy: null,
+            feedItemId: post.id,
+            feedItemDate: post.createdAt,
+        });
+    }
 
-    return { data, total, page, limit, hasMore: skip + data.length < total };
+    // add each share as separate feed item
+    for (const share of sharedByFollowing) {
+        if (hiddenPostIds.includes(share.postId)) continue;
+        const post = share.post;
+        const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
+            this.likeRepo.count({ where: { postId: post.id } }),
+            this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+            this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+            this.shareRepo.count({ where: { postId: post.id } }),
+            this.shareRepo.findOne({ where: { postId: post.id, userId } }),
+            this.saveRepo.findOne({ where: { postId: post.id, userId } }),
+        ]);
+
+        allItems.push({
+            ...post,
+            _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
+            isLikedByMe: !!userLike,
+            isSharedByMe: !!userShare,
+            isSavedByMe: !!userSave,
+            sharedBy: {
+                username: share.user.username,
+                avatarUrl: share.user.avatarUrl,
+            },
+            feedItemId: `share-${share.id}`,
+            feedItemDate: share.createdAt,
+        });
+    }
+
+    // sort all by date and paginate
+    allItems.sort((a, b) => new Date(b.feedItemDate).getTime() - new Date(a.feedItemDate).getTime());
+    const paginated = allItems.slice(skip, skip + limit);
+
+    return { data: paginated, total: allItems.length, page, limit, hasMore: skip + limit < allItems.length };
 }
 
     async toggleLike(userId: string, postId: string) {
@@ -156,32 +185,62 @@ export class PostsService {
 async getUserPosts(username: string, viewerId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
 
-    const [posts, total] = await this.postRepo.findAndCount({
+    const user = await this.postRepo.manager.findOne("users", { where: { username } }) as any;
+    if (!user) throw new NotFoundException("User not found");
+
+    const [posts] = await this.postRepo.findAndCount({
         where: { author: { username } },
         order: { createdAt: "DESC" },
-        skip,
-        take: limit,
         relations: ["author"],
     });
 
-    const data = await Promise.all(
-        posts.map(async (post) => {
-            const [likesCount, commentsCount, userLike, userSave] = await Promise.all([
-                this.likeRepo.count({ where: { postId: post.id } }),
-                this.postRepo.manager.count("comments", { where: { postId: post.id } }),
-                viewerId ? this.likeRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
-                viewerId ? this.saveRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
-            ]);
-            return {
-                ...post,
-                _count: { likes: likesCount, comments: commentsCount },
-                isLikedByMe: !!userLike,
-                isSavedByMe: !!userSave,
-            };
-        })
-    );
+    const shares = await this.shareRepo.find({
+        where: { userId: user.id },
+        relations: ["post", "post.author"],
+        order: { createdAt: "DESC" },
+    });
 
-    return { data, total, page, limit, hasMore: skip + data.length < total };
+    const allItems: any[] = [];
+
+    for (const post of posts) {
+        const [likesCount, commentsCount, userLike, userSave] = await Promise.all([
+            this.likeRepo.count({ where: { postId: post.id } }),
+            this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+            viewerId ? this.likeRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+            viewerId ? this.saveRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+        ]);
+        allItems.push({
+            ...post,
+            _count: { likes: likesCount, comments: commentsCount },
+            isLikedByMe: !!userLike,
+            isSavedByMe: !!userSave,
+            sharedBy: null,
+            feedItemDate: post.createdAt,
+        });
+    }
+
+    for (const share of shares) {
+        const post = share.post;
+        const [likesCount, commentsCount, userLike, userSave] = await Promise.all([
+            this.likeRepo.count({ where: { postId: post.id } }),
+            this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+            viewerId ? this.likeRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+            viewerId ? this.saveRepo.findOne({ where: { postId: post.id, userId: viewerId } }) : null,
+        ]);
+        allItems.push({
+            ...post,
+            _count: { likes: likesCount, comments: commentsCount },
+            isLikedByMe: !!userLike,
+            isSavedByMe: !!userSave,
+            sharedBy: { username: user.username, avatarUrl: user.avatarUrl },
+            feedItemDate: share.createdAt,
+        });
+    }
+
+    allItems.sort((a, b) => new Date(b.feedItemDate).getTime() - new Date(a.feedItemDate).getTime());
+    const paginated = allItems.slice(skip, skip + limit);
+
+    return { data: paginated, total: allItems.length, page, limit, hasMore: skip + limit < allItems.length };
 }
 
 async getSavedPosts(userId: string, page: number, limit: number) {

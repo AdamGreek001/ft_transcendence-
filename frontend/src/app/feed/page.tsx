@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { api, apiClient } from "@/lib/api";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+
+
 
 // ============================================================
 // TYPES — ready for real API data later
@@ -29,6 +33,7 @@ interface Comment {
 
 interface Post {
   id: string;
+  feedItemId?: string;
   content: string;
   imageUrl: string | null;
   createdAt: string;
@@ -45,7 +50,6 @@ interface Post {
   isLikedByMe?: boolean;
   isSharedByMe?: boolean;
   isSavedByMe?: boolean;
-  isHidden?: boolean;
   sharedBy?: {
     username: string;
     avatarUrl: string | null;
@@ -290,31 +294,35 @@ function CommentItem({ comment, onReply, isReply = false , currentUser}: {
   currentUser: any;
 }) {
   const relativeTime = useRelativeTime(new Date(comment.createdAt));
+  const router = useRouter();
 
-  return (
+return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
-          <Image
-            src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
-            alt={comment.author.username}
-            width={32}
-            height={32}
-            className="rounded-full object-cover"
-          />
-        </div>
-        <div className="flex flex-col gap-1 flex-1">
+        <ProfileHoverCard author={comment.author} currentUser={currentUser}>
           <div 
-            className="px-3 py-2 rounded-2xl rounded-tl-none"
-            style={{ backgroundColor: "#242424" }}
-          >
-            <span className="font-bold text-xs text-white block mb-0.5"
-              style={{ color: currentUser?.username === comment.author.username ? "#895af6" : "#fff" }}>
-              {comment.author.username}
-            </span>
-            <p className="text-sm text-slate-400 break-all">
-              {comment.content}
-            </p>
+              className="w-8 h-8 rounded-full overflow-hidden shrink-0 cursor-pointer"
+              onClick={() => router.push(`/profile/${comment.author.username}`)}>
+            <Image
+              src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
+              alt={comment.author.username}
+              width={32}
+              height={32}
+              className="rounded-full object-cover"
+            />
+          </div>
+        </ProfileHoverCard>
+        <div className="flex flex-col gap-1 flex-1">
+          <div className="px-3 py-2 rounded-2xl rounded-tl-none" style={{ backgroundColor: "#242424" }}>
+            <ProfileHoverCard author={comment.author} currentUser={currentUser}>
+              <span
+                className="font-bold text-xs text-white block mb-0.5 cursor-pointer hover:underline"
+                onClick={() => router.push(`/profile/${comment.author.username}`)}
+              >
+                {comment.author.username}
+              </span>
+            </ProfileHoverCard>
+            <p className="text-sm text-slate-400">{comment.content}</p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
             {!isReply && (
@@ -330,23 +338,17 @@ function CommentItem({ comment, onReply, isReply = false , currentUser}: {
         </div>
       </div>
 
-      {/* Replies — indented, no reply button */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="ml-11 flex flex-col gap-3 border-l-2 border-slate-800 pl-3">
           {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              onReply={onReply}
-              isReply={true}
-              currentUser={currentUser}
-            />
+            <CommentItem key={reply.id} comment={reply} onReply={onReply} isReply={true} currentUser={currentUser} />
           ))}
         </div>
       )}
     </div>
   );
 }
+
 
 // ============================================================
 // COMMENT SECTION
@@ -541,12 +543,195 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   );
 }
 
+
+function ProfileHoverCard({ author, currentUser, children }: {
+  author: { id: string; username: string; avatarUrl: string | null };
+  currentUser: any;
+  children: React.ReactNode;
+}) {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [profile, setProfile] = useState<any>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [hoverFollowing, setHoverFollowing] = useState(false);
+  const [flipped, setFlipped] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const isOwnProfile = currentUser?.id === author.id;
+
+  function updatePos() {
+  if (!triggerRef.current) return;
+  const rect = triggerRef.current.getBoundingClientRect();
+  const cardHeight = 280;
+  const isBottomHalf = rect.top > window.innerHeight / 2;
+  setFlipped(isBottomHalf);
+
+  setPos({
+    top: isBottomHalf
+      ? rect.top + window.scrollY - cardHeight - 8
+      : rect.bottom + window.scrollY + 8,
+    left: Math.min(
+      Math.max(rect.left + window.scrollX, 8),
+      window.innerWidth - 300 - 8
+    ),
+  });
+}
+
+  async function handleMouseEnter() {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    updatePos();
+    setShow(true);
+    if (!profile) {
+      try {
+        const [data, following] = await Promise.all([
+          apiClient.get<any>(`/users/${author.username}`),
+          currentUser ? apiClient.get<any[]>(`/users/${currentUser.id}/following`) : Promise.resolve([]),
+        ]);
+        setProfile(data);
+        setIsFollowing(following.some((f: any) =>
+          f.followingId === author.id || f.following?.id === author.id
+        ));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  function handleMouseLeave() {
+    timeoutRef.current = setTimeout(() => setShow(false), 200);
+  }
+
+  async function handleFollow() {
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await apiClient.delete(`/users/${author.id}/follow`);
+        setIsFollowing(false);
+      } else {
+        await apiClient.post(`/users/${author.id}/follow`);
+        setIsFollowing(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setFollowLoading(false);
+      setHoverFollowing(false);
+    }
+  }
+
+  const card = show ? (
+    <div
+      className="fixed w-72 rounded-2xl border border-slate-700 shadow-2xl p-4 flex flex-col gap-3"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        backgroundColor: "#1a1a1a",
+        zIndex: 99999,
+        transformOrigin: flipped ? "bottom left" : "top left",
+        animation: "fadeIn 0.15s ease",
+      }}
+      onMouseEnter={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between">
+        <Image
+          src={normalizeAvatarUrl(author.avatarUrl, author.username)}
+          alt={author.username}
+          width={52}
+          height={52}
+          className="rounded-full object-cover cursor-pointer"
+          onClick={() => router.push(`/profile/${author.username}`)}
+        />
+        {!isOwnProfile && currentUser && (
+          <button
+            onClick={handleFollow}
+            disabled={followLoading}
+            onMouseEnter={() => isFollowing && setHoverFollowing(true)}
+            onMouseLeave={() => setHoverFollowing(false)}
+            className="px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200"
+            style={{
+              backgroundColor: isFollowing
+                ? hoverFollowing ? "#7f1d1d" : "#1e293b"
+                : "#895af6",
+              color: isFollowing
+                ? hoverFollowing ? "#fca5a5" : "#e2e8f0"
+                : "#ffffff",
+              border: isFollowing ? "1px solid #334155" : "none",
+            }}
+          >
+            {followLoading ? "..." : isFollowing
+              ? (hoverFollowing ? "Unfollow" : "Following")
+              : "Follow"}
+          </button>
+        )}
+      </div>
+
+      {/* Name + username */}
+      <div
+        className="flex flex-col gap-0.5 cursor-pointer break-all"
+        onClick={() => router.push(`/profile/${author.username}`)}
+      >
+        <span className="font-bold text-sm text-white hover:underline">
+          {profile?.displayName || author.username}
+        </span>
+        <span className="text-xs text-slate-500 break-all">@{author.username}</span>
+      </div>
+
+      {/* Bio */}
+      {profile?.bio && (
+        <p className="text-xs text-slate-300 leading-relaxed break-all">{profile.bio}</p>
+      )}
+
+      {/* Stats */}
+      {profile && (
+        <div className="flex gap-4 text-xs border-t border-slate-800 pt-3">
+          <div className="flex gap-1">
+            <span className="font-bold text-white">{profile._count?.following ?? 0}</span>
+            <span className="text-slate-500">Following</span>
+          </div>
+          <div className="flex gap-1">
+            <span className="font-bold text-white">{profile._count?.followers ?? 0}</span>
+            <span className="text-slate-500">Followers</span>
+          </div>
+        </div>
+      )}
+
+      {/* View profile button */}
+      <button
+        onClick={() => router.push(`/profile/${author.username}`)}
+        className="w-full py-2 rounded-full text-xs font-bold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors mt-1"
+      >
+        View profile
+      </button>
+
+      {!profile && (
+        <div className="text-xs text-slate-500 text-center py-2">Loading...</div>
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <div
+      ref={triggerRef}
+      className="inline-block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+      {typeof window !== "undefined" && createPortal(card, document.body)}
+    </div>
+  );
+}
+
 // ============================================================
 // POST CARD
 // ============================================================
 
 export function PostCard({ id, content, imageUrl, createdAt, author, _count,
-  isLikedByMe, isSharedByMe, isSavedByMe, isHidden, sharedBy, currentUser }: Post & {
+  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser }: Post & {
   currentUser: any;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
@@ -557,6 +742,11 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
   const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
   const isOwnPost = currentUser?.id === author.id;
   const [hidden, setHidden] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  const router = useRouter();
+
 
   const relativeTime = useRelativeTime(new Date(createdAt));
 
@@ -573,6 +763,35 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
     setLikeCount(likeCount);
     console.error("Like error:", err);
   }
+}
+  useEffect(() => {
+    async function checkFollow() {
+        if (!currentUser || isOwnPost) return;
+        try {
+            const following = await apiClient.get<any[]>(`/users/${currentUser.id}/following`);
+            setIsFollowing(following.some((f: any) => f.followingId === author.id || f.following?.id === author.id));
+        } catch (err) {
+            console.error("Follow check error:", err);
+        }
+    }
+    checkFollow();
+}, [currentUser, author.id]);
+
+  async function handleFollow() {
+    setFollowLoading(true);
+    try {
+        if (isFollowing) {
+            await apiClient.delete(`/users/${author.id}/follow`);
+            setIsFollowing(false);
+        } else {
+            await apiClient.post(`/users/${author.id}/follow`);
+            setIsFollowing(true);
+        }
+    } catch (err) {
+        console.error("Follow error:", err);
+    } finally {
+        setFollowLoading(false);
+    }
 }
 
   async function handleSave() {
@@ -628,7 +847,7 @@ async function handleUnhide() {
         console.error("Unhide error:", err);
     }
 }
-
+    if (hidden && isOwnPost) return null;
     if (hidden) return (
         <div className="bg-[#1a1a1a] rounded-2xl border border-slate-800 p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -650,32 +869,47 @@ async function handleUnhide() {
 
       {/* Shared by banner */}
       {sharedBy && (
-  <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
-    <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
-    <span>
-      <span className="text-[#895af6] font-semibold">{sharedBy.username}</span>
-      {" "}shared this
-    </span>
-  </div>
-)}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
+          <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
+          <span>
+              <span
+                  className="text-[#895af6] font-semibold cursor-pointer hover:underline"
+                  onClick={() => router.push(`/profile/${sharedBy.username}`)}
+              >
+                  {sharedBy.username}
+              </span>
+              {" "}shared this
+          </span>
+      </div>
+  )}
 
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full overflow-hidden shrink-0">
-            <Image
-              src={normalizeAvatarUrl(author.avatarUrl, author.username)}
-              alt={`${author.username}'s profile picture`}
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-sm text-white">{author.username}</span>
-            <span className="text-xs text-slate-500">{relativeTime}</span>
-          </div>
+          <ProfileHoverCard author={author} currentUser={currentUser}>
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={() => router.push(`/profile/${author.username}`)}
+            >
+              <div className="size-10 rounded-full overflow-hidden shrink-0">
+                <Image
+                  src={normalizeAvatarUrl(author.avatarUrl, author.username)}
+                  alt={author.username}
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-sm text-white hover:underline">{author.username}</span>
+                <span className="text-xs text-slate-500">{relativeTime}</span>
+              </div>
+            </div>
+          </ProfileHoverCard>
         </div>
+      {!isOwnPost && isFollowing && (
+        <span className="text-[11px] text-slate-600 font-medium">Following</span>
+      )}
         {/* Own post — delete button */}
         {isOwnPost && (
             <button
@@ -962,7 +1196,7 @@ export default function FeedPage() {
 
             {posts.map((post) => (
               <PostCard
-                key={post.id}
+                key={post.feedItemId || post.id}
                 {...post}
                 currentUser={currentUser}
               />
