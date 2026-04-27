@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 // import your existing PostCard and normalizeAvatarUrl
 import { PostCard, normalizeAvatarUrl } from "@/app/feed/page";
+import { FollowListModal } from "@/components/profile/FollowingListModal";
 
 type Tab = "posts" | "saved";
 
@@ -67,6 +68,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const [posts, setPosts] = useState<any[]>([]);
     const [savedPosts, setSavedPosts] = useState<any[]>([]);
     const [postsLoading, setPostsLoading] = useState(false);
+    const [followModal, setFollowModal] = useState<{
+        open: boolean;
+        tab: "followers" | "following";
+    } | null>(null);
 
     const loadProfile = async () => {
         const resolved = await params;
@@ -324,18 +329,24 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
                             {/* Stats */}
                             <div className="flex gap-6 text-sm">
-                                <div className="flex flex-col items-center">
-                                    <span className="font-bold text-white">{profile._count?.posts ?? 0}</span>
-                                    <span className="text-slate-500 text-xs">Posts</span>
-                                </div>
-                                <div className="flex flex-col items-center">
-                                    <span className="font-bold text-white">{profile._count?.followers ?? 0}</span>
-                                    <span className="text-slate-500 text-xs">Followers</span>
-                                </div>
-                                <div className="flex flex-col items-center">
-                                    <span className="font-bold text-white">{profile._count?.following ?? 0}</span>
-                                    <span className="text-slate-500 text-xs">Following</span>
-                                </div>
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-white">{profile._count?.posts ?? 0}</span>
+                                <span className="text-slate-500 text-xs">Posts</span>
+                              </div>
+                              <button
+                                onClick={() => setFollowModal({ open: true, tab: "followers" })}
+                                className="flex flex-col items-center hover:opacity-70 transition-opacity"
+                              >
+                                <span className="font-bold text-white">{profile._count?.followers ?? 0}</span>
+                                <span className="text-slate-500 text-xs">Followers</span>
+                              </button>
+                              <button
+                                onClick={() => setFollowModal({ open: true, tab: "following" })}
+                                className="flex flex-col items-center hover:opacity-70 transition-opacity"
+                              >
+                                <span className="font-bold text-white">{profile._count?.following ?? 0}</span>
+                                <span className="text-slate-500 text-xs">Following</span>
+                              </button>
                             </div>
                         </div>
                     </div>
@@ -387,7 +398,17 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                             ))}
                         </div>
                     )}
-
+                    {/* at the bottom of the return */}
+                    {followModal?.open && (
+                      <FollowListModal
+                        profileId={profile.id}
+                        profileUsername={profile.username}
+                        initialTab={followModal.tab}
+                        followerCount={profile._count?.followers ?? 0}
+                        followingCount={profile._count?.following ?? 0}
+                        onClose={() => setFollowModal(null)}
+                      />
+                    )}
                 </div>
             </main>
         </div>

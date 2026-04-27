@@ -243,4 +243,5 @@ export class UsersController {
   async getFollowing(@Param("id") id: string) {
     return this.usersService.getFollowing(id);
   }
+  
 }
