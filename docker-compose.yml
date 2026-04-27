@@ -176,18 +176,18 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: ft_cadvisor
-    privileged: true
+    # privileged: true
     command:
       - "--docker_only=true"
       - "--store_container_labels=true"
       - "--housekeeping_interval=10s"
     volumes:
-      - /:/rootfs:ro
+      # - /:/rootfs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
+      # - /var/run:/var/run:ro
+      # - /sys:/sys:ro
+      # - /var/lib/docker/:/var/lib/docker:ro
+      # - /dev/disk/:/dev/disk:ro
     networks:
       - app-network
     restart: unless-stopped
@@ -240,7 +240,7 @@ services:
       - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
     volumes:
       - ./monitoring/elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # - /var/lib/docker/containers:/var/lib/docker/containers:ro
     depends_on:
       - elasticsearch
     networks:
