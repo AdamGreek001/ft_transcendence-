@@ -233,15 +233,20 @@ export class UsersController {
   @Get(":id/followers")
   @SkipThrottle()
   @ApiOperation({ summary: "Get user followers" })
-  async getFollowers(@Param("id") id: string) {
-    return this.usersService.getFollowers(id);
+  async getFollowers(
+    @Param("id") id: string,
+    @Query("currentUserId") currentUserId?: string,
+  ) {
+    return this.usersService.getFollowers(id, currentUserId);
   }
-
+  
   @Get(":id/following")
   @SkipThrottle()
   @ApiOperation({ summary: "Get users this user follows" })
-  async getFollowing(@Param("id") id: string) {
-    return this.usersService.getFollowing(id);
+  async getFollowing(
+    @Param("id") id: string,
+    @Query("currentUserId") currentUserId?: string,
+  ) {
+    return this.usersService.getFollowing(id, currentUserId);
   }
-  
 }

@@ -10,7 +10,7 @@ import { normalizeAvatarUrl } from "@/app/feed/page";
 type Tab = "followers" | "following";
 
 interface FollowUser {
-  userId: string;
+  id: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
@@ -23,7 +23,8 @@ interface Props {
   initialTab: Tab;
   followerCount: number;
   followingCount: number;
-  onClose: () => void;
+  handleClose: () => void;
+  onFollowChange?: (userId: string, nowFollowing: boolean) => void;
 }
 
 export function FollowListModal({
@@ -32,7 +33,8 @@ export function FollowListModal({
   initialTab,
   followerCount,
   followingCount,
-  onClose,
+  handleClose,
+  onFollowChange,
 }: Props) {
   const { user: currentUser } = useAuth();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -46,10 +48,10 @@ export function FollowListModal({
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeAndReset(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [handleClose]);
 
   useEffect(() => {
     if (lists[tab] !== null) return;
@@ -58,7 +60,7 @@ export function FollowListModal({
     (async () => {
       try {
         const data = await apiClient.get<FollowUser[]>(
-          `/users/${profileId}/${tab}`
+          `/users/${profileId}/${tab}?currentUserId=${currentUser?.id ?? ""}`
         );
         if (!cancelled)
           setLists((prev) => ({ ...prev, [tab]: data }));
@@ -73,38 +75,42 @@ export function FollowListModal({
   }, [tab, profileId, lists]);
 
   const handleToggleFollow = async (u: FollowUser) => {
-    if (u.userId === currentUser?.id) return;
-    setFollowBusy((p) => ({ ...p, [u.userId]: true }));
-    try {
-      if (u.isFollowing) {
-        await apiClient.delete(`/users/${u.userId}/follow`);
-      } else {
-        await apiClient.post(`/users/${u.userId}/follow`);
-      }
-      const patch = (list: FollowUser[] | null) =>
-        list?.map((x) =>
-          x.userId === u.userId ? { ...x, isFollowing: !x.isFollowing } : x
-        ) ?? null;
-      setLists((prev) => ({
-        followers: patch(prev.followers),
-        following: patch(prev.following),
-      }));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setFollowBusy((p) => ({ ...p, [u.userId]: false }));
-      setHoverUnfollow((p) => ({ ...p, [u.userId]: false }));
+  if (u.id === currentUser?.id) return;
+  setFollowBusy((p) => ({ ...p, [u.id]: true }));
+  try {
+    if (u.isFollowing) {
+      await apiClient.delete(`/users/${u.id}/follow`);
+    } else {
+      await apiClient.post(`/users/${u.id}/follow`);
     }
-  };
+    const patch = (list: FollowUser[] | null) =>
+      list?.map((x) =>
+        x.id === u.id ? { ...x, isFollowing: !x.isFollowing } : x
+      ) ?? null;
+    setLists((prev) => ({
+      followers: patch(prev.followers),
+      following: patch(prev.following),
+    }));
+    onFollowChange?.(u.id, !u.isFollowing); // ← notify parent
+  } catch (err) {
+    console.error("Toggle follow error:", err);
+  } finally {
+    setFollowBusy((p) => ({ ...p, [u.id]: false }));
+    setHoverUnfollow((p) => ({ ...p, [u.id]: false }));
+  }
+};
 
   const users = lists[tab];
-
+  const closeAndReset  = () => {
+    setLists({ followers: null, following: null });
+    handleClose();
+  };
   const modal = (
     <div
       ref={overlayRef}
       className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
       style={{ background: "rgba(0,0,0,0.6)" }}
-      onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onMouseDown={(e) => { if (e.target === overlayRef.current) closeAndReset(); }}
     >
       <div
         className="w-full rounded-2xl overflow-hidden shadow-2xl"
@@ -123,7 +129,7 @@ export function FollowListModal({
             @{profileUsername}
           </span>
           <button
-            onClick={onClose}
+            onClick={closeAndReset}
             className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
             style={{ background: "#2a2a2a" }}
           >
@@ -179,12 +185,12 @@ export function FollowListModal({
             </div>
           ) : (
             users.map((u) => {
-              const isYou = u.userId === currentUser?.id;
-              const busy = followBusy[u.userId];
-              const hovering = hoverUnfollow[u.userId];
+              const isYou = u.id === currentUser?.id;
+              const busy = followBusy[u.id];
+              const hovering = hoverUnfollow[u.id];
               return (
                 <div
-                  key={u.userId}
+                  key={u.id}
                   className="flex items-center gap-3 px-4 py-2 transition-colors"
                   style={{ cursor: "pointer" }}
                   onMouseEnter={(e) =>
@@ -226,10 +232,10 @@ export function FollowListModal({
                       disabled={busy}
                       onMouseEnter={() =>
                         u.isFollowing &&
-                        setHoverUnfollow((p) => ({ ...p, [u.userId]: true }))
+                        setHoverUnfollow((p) => ({ ...p, [u.id]: true }))
                       }
                       onMouseLeave={() =>
-                        setHoverUnfollow((p) => ({ ...p, [u.userId]: false }))
+                        setHoverUnfollow((p) => ({ ...p, [u.id]: false }))
                       }
                       className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all"
                       style={{

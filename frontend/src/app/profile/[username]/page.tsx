@@ -90,6 +90,27 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         }
     };
 
+    const handleFollowChangeFromModal = (userId: string, nowFollowing: boolean) => {
+      // if the profile user themselves was followed/unfollowed from the modal
+      if (userId === profile?.id) {
+        setIsFollowing(nowFollowing);
+        setProfile((prev) => {
+          if (!prev) return prev;
+          const followers = prev._count?.followers ?? 0;
+          return {
+            ...prev,
+            _count: {
+              ...prev._count,
+              followers: nowFollowing
+                ? followers + 1
+                : Math.max(0, followers - 1),
+            },
+          };
+        });
+        setIsFriend(nowFollowing ? profileFollowsCurrent : false);
+      }
+    };
+
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
@@ -406,7 +427,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                         initialTab={followModal.tab}
                         followerCount={profile._count?.followers ?? 0}
                         followingCount={profile._count?.following ?? 0}
-                        onClose={() => setFollowModal(null)}
+                        handleClose={() => setFollowModal(null)}
+                        onFollowChange={handleFollowChangeFromModal} // ← add this
                       />
                     )}
                 </div>
