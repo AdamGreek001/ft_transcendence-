@@ -341,21 +341,32 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     </div>
 
                     {/* Tabs — only show saved on own profile */}
-                    <div className="flex border-b border-slate-800">
-                        <button
-                            onClick={() => setActiveTab("posts")}
-                            className={`flex-1 py-3 text-sm font-bold transition border-b-2 ${activeTab === "posts" ? "border-[#895af6] text-[#895af6]" : "border-transparent text-slate-500 hover:text-slate-300"}`}
-                        >
-                            Posts
-                        </button>
-                        {isOwnProfile && (
+                    <div className="sticky top-0 z-50 bg-[#1a1a1a] border-b border-slate-800">
+                        <div className="flex gap-1 p-1 rounded-xl">
                             <button
-                                onClick={() => setActiveTab("saved")}
-                                className={`flex-1 py-3 text-sm font-bold transition border-b-2 ${activeTab === "saved" ? "border-[#895af6] text-[#895af6]" : "border-transparent text-slate-500 hover:text-slate-300"}`}
+                                onClick={() => setActiveTab("posts")}
+                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                                    activeTab === "posts"
+                                        ? "bg-[#895af6] text-white shadow-lg shadow-[#895af6]/20"
+                                        : "text-slate-500 hover:text-slate-300"
+                                }`}
                             >
-                                Saved
+                                Posts
                             </button>
-                        )}
+                            
+                            {isOwnProfile && (
+                                <button
+                                    onClick={() => setActiveTab("saved")}
+                                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                                        activeTab === "saved"
+                                            ? "bg-[#895af6] text-white shadow-lg shadow-[#895af6]/20"
+                                            : "text-slate-500 hover:text-slate-300"
+                                    }`}
+                                >
+                                    Saved
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Posts list */}

@@ -90,14 +90,18 @@ export const api = {
     apiClient.post<{ liked: boolean }>(`/posts/${postId}/like`),
   share: (postId: string) =>
     apiClient.post<{ shared: boolean }>(`/posts/${postId}/share`),
-  delete: (postId: string) =>
-    apiClient.delete<void>(`/posts/${postId}`),
   save: (postId: string) =>
     apiClient.post<{ saved: boolean }>(`/posts/${postId}/save`),
   getByUsername: (username: string, page = 1) =>
     apiClient.get<any>(`/posts/user/${username}?page=${page}`),
   getSaved: (page = 1) =>
     apiClient.get<any>(`/posts/saved?page=${page}`),
+  delete: (postId: string) =>
+    apiClient.delete<{ deleted: boolean }>(`/posts/${postId}/delete`),
+  hide: (postId: string) =>
+      apiClient.post<{ hidden: boolean }>(`/posts/${postId}/hide`),
+  unhide: (postId: string) =>
+      apiClient.post<{ hidden: boolean }>(`/posts/${postId}/unhide`),
 },
 
   comments: {

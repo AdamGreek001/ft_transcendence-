@@ -45,6 +45,7 @@ interface Post {
   isLikedByMe?: boolean;
   isSharedByMe?: boolean;
   isSavedByMe?: boolean;
+  isHidden?: boolean;
   sharedBy?: {
     username: string;
     avatarUrl: string | null;
@@ -545,7 +546,7 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
 // ============================================================
 
 export function PostCard({ id, content, imageUrl, createdAt, author, _count,
-  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser }: Post & {
+  isLikedByMe, isSharedByMe, isSavedByMe, isHidden, sharedBy, currentUser }: Post & {
   currentUser: any;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
@@ -554,6 +555,7 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
   const [showComments, setShowComments] = useState(false);
   const [shared, setShared] = useState(isSharedByMe ?? false);
   const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
+  const isOwnPost = currentUser?.id === author.id;
   const [hidden, setHidden] = useState(false);
 
   const relativeTime = useRelativeTime(new Date(createdAt));
@@ -600,8 +602,49 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
   }
 }
 
-  if (hidden) return null;
+async function handleDelete() {
+    try {
+        await api.posts.delete(id);
+        setHidden(true); // remove from UI after delete
+    } catch (err) {
+        console.error("Delete error:", err);
+    }
+}
 
+async function handleHide() {
+    try {
+        await api.posts.hide(id);
+        setHidden(true);
+    } catch (err) {
+        console.error("Hide error:", err);
+    }
+}
+
+async function handleUnhide() {
+    try {
+        await api.posts.unhide(id);
+        setHidden(false);
+    } catch (err) {
+        console.error("Unhide error:", err);
+    }
+}
+
+    if (hidden) return (
+        <div className="bg-[#1a1a1a] rounded-2xl border border-slate-800 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <img src="/icons/close.svg" alt="hidden" className="w-4 h-4 opacity-40" />
+                <span className="text-sm text-slate-500">Post hidden</span>
+            </div>
+            {!isOwnPost && (
+                <button
+                    onClick={handleUnhide}
+                    className="text-xs font-bold text-[#895af6] hover:opacity-80 transition-opacity"
+                >
+                    Show post
+                </button>
+            )}
+        </div>
+    );
   return (
     <article className="bg-[#1a1a1a] rounded-2xl border border-slate-800 overflow-hidden shadow-lg">
 
@@ -633,12 +676,28 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
             <span className="text-xs text-slate-500">{relativeTime}</span>
           </div>
         </div>
-        <button
-          onClick={() => setHidden(true)}
-          className="text-slate-500 hover:text-white transition-colors"
-        >
-          <img src="/icons/close.svg" alt="close" className="w-5 h-5" />
-        </button>
+        {/* Own post — delete button */}
+        {isOwnPost && (
+            <button
+              onClick={handleDelete}
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/10 
+                         text-slate-400 hover:text-red-400 
+                         transition-all duration-200 
+                         backdrop-blur-sm"
+           >
+              <img src="/icons/delete.svg" alt="delete" className="w-4 h-4" />
+            </button>
+        )}
+
+        {/* Other's post — hide button */}
+        {!isOwnPost && (
+            <button
+                onClick={handleHide}
+                className="text-slate-500 hover:text-white transition-colors"
+            >
+                <img src="/icons/close.svg" alt="hide" className="w-5 h-5" />
+            </button>
+        )}
       </div>
 
       {/* Text content */}

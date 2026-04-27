@@ -8,6 +8,7 @@ import { Save } from "../../entities/save.entity";
 import { Follow } from "../../entities/follow.entity";
 import { Comment } from "../../entities/comment.entity"; // ← ADD THIS IMPORT
 import { NotificationsService } from "../notifications/notifications.service";
+import { HiddenPost } from "@/entities/hidden-post.entity";
 
 @Injectable()
 export class PostsService {
@@ -17,6 +18,7 @@ export class PostsService {
         @InjectRepository(Follow) private readonly followRepo: Repository<Follow>,
         @InjectRepository(Share) private readonly shareRepo: Repository<Share>,
         @InjectRepository(Save) private readonly saveRepo: Repository<Save>,
+        @InjectRepository(HiddenPost) private readonly hiddenPostRepo: Repository<HiddenPost>,
         @Inject(forwardRef(() => NotificationsService))
         private readonly notificationsService: NotificationsService,
     ) { }
@@ -43,70 +45,70 @@ export class PostsService {
     }
 
     async getFeed(userId: string, page: number, limit: number) {
-        try { // ← try opens here
-            const skip = (page - 1) * limit;
-            const follows = await this.followRepo.find({
-                where: { followerId: userId },
-                select: ["followingId"],
-            });
-            const followingIds = follows
-                .map((f) => f.followingId)
-                .filter(Boolean);
+    const skip = (page - 1) * limit;
 
-            if (userId) {
-                followingIds.push(userId);
-            }
+    const follows = await this.followRepo.find({
+        where: { followerId: userId },
+        select: ["followingId"],
+    });
+    const followingIds = follows.map((f) => f.followingId);
+    followingIds.push(userId);
 
-            const sharedByFollowing = await this.shareRepo.find({
-                where: { userId: In(followingIds) },
-                relations: ["user"],
-            });
-            const sharedPostIds = sharedByFollowing.map((s) => s.postId);
+    // get hidden post ids for this user
+    const hiddenPosts = await this.hiddenPostRepo.find({
+        where: { userId },
+        select: ["postId"],
+    });
+    const hiddenPostIds = hiddenPosts.map((h) => h.postId);
 
-            const [posts, total] = await this.postRepo.findAndCount({
-                where: [
-                    { authorId: In(followingIds.length ? followingIds : [userId]) },
-                    ...(sharedPostIds.length ? [{ id: In(sharedPostIds) }] : []),
-                ],
-                order: { createdAt: "DESC" },
-                skip,
-                take: limit,
-                relations: ["author"],
-            });
+    const sharedByFollowing = await this.shareRepo.find({
+        where: { userId: In(followingIds) },
+        relations: ["user"],
+    });
+    const sharedPostIds = sharedByFollowing.map((s) => s.postId);
 
-            const data = await Promise.all(
-                posts.map(async (post) => {
-                    const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
-                        this.likeRepo.count({ where: { postId: post.id } }),
-                        this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
-                        this.likeRepo.findOne({ where: { postId: post.id, userId } }),
-                        this.shareRepo.count({ where: { postId: post.id } }),
-                        this.shareRepo.findOne({ where: { postId: post.id, userId } }),
-                        this.saveRepo.findOne({ where: { postId: post.id, userId } }),
-                    ]);
+    const queryBuilder = this.postRepo.createQueryBuilder("post")
+        .leftJoinAndSelect("post.author", "author")
+        .where("post.authorId IN (:...authorIds)", { authorIds: followingIds })
+        .andWhere(hiddenPostIds.length > 0 ? "post.id NOT IN (:...hiddenIds)" : "1=1",
+            hiddenPostIds.length > 0 ? { hiddenIds: hiddenPostIds } : {})
+        .orderBy("post.createdAt", "DESC")
+        .skip(skip)
+        .take(limit);
 
-                    const sharedBy = sharedByFollowing.find((s) => s.postId === post.id && s.userId !== post.authorId);
+    const [posts, total] = await queryBuilder.getManyAndCount();
 
-                    return {
-                        ...post,
-                        _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
-                        isLikedByMe: !!userLike,
-                        isSharedByMe: !!userShare,
-                        isSavedByMe: !!userSave,
-                        sharedBy: sharedBy ? {
-                            username: sharedBy.user.username,
-                            avatarUrl: sharedBy.user.avatarUrl,
-                        } : null,
-                    };
-                })
+    const data = await Promise.all(
+        posts.map(async (post) => {
+            const [likesCount, commentsCount, userLike, sharesCount, userShare, userSave] = await Promise.all([
+                this.likeRepo.count({ where: { postId: post.id } }),
+                this.postRepo.manager.count(Comment, { where: { postId: post.id } }),
+                this.likeRepo.findOne({ where: { postId: post.id, userId } }),
+                this.shareRepo.count({ where: { postId: post.id } }),
+                this.shareRepo.findOne({ where: { postId: post.id, userId } }),
+                this.saveRepo.findOne({ where: { postId: post.id, userId } }),
+            ]);
+
+            const sharedBy = sharedByFollowing.find(
+                (s) => s.postId === post.id && s.userId !== post.authorId
             );
 
-            return { data, total, page, limit, hasMore: skip + data.length < total };
-        } catch (err) { // ← catch closes the try block properly, INSIDE the class
-            console.error('🔴 FEED ERROR:', err);
-            throw err;
-        }
-    } // ← getFeed method closes here
+            return {
+                ...post,
+                _count: { likes: likesCount, comments: commentsCount, shares: sharesCount },
+                isLikedByMe: !!userLike,
+                isSharedByMe: !!userShare,
+                isSavedByMe: !!userSave,
+                sharedBy: sharedBy ? {
+                    username: sharedBy.user.username,
+                    avatarUrl: sharedBy.user.avatarUrl,
+                } : null,
+            };
+        })
+    );
+
+    return { data, total, page, limit, hasMore: skip + data.length < total };
+}
 
     async toggleLike(userId: string, postId: string) {
         const existing = await this.likeRepo.findOne({ where: { userId, postId } });
@@ -211,5 +213,28 @@ async getSavedPosts(userId: string, page: number, limit: number) {
     );
 
     return { data, total, page, limit, hasMore: skip + data.length < total };
+}
+
+    async hidePost(userId: string, postId: string) {
+    const post = await this.postRepo.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException("Post not found");
+    const existing = await this.hiddenPostRepo.findOne({ where: { userId, postId } });
+    if (existing) return { hidden: true }; // already hidden
+    const hidden = this.hiddenPostRepo.create({ userId, postId });
+    await this.hiddenPostRepo.save(hidden);
+    return { hidden: true };
+}
+
+    async unhidePost(userId: string, postId: string) {
+    const existing = await this.hiddenPostRepo.findOne({ where: { userId, postId } });
+    if (existing) await this.hiddenPostRepo.remove(existing);
+    return { hidden: false };
+}
+    async deletePost(userId: string, postId: string) {
+    const post = await this.postRepo.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException("Post not found");
+    if (post.authorId !== userId) throw new NotFoundException("Not your post");
+    await this.postRepo.remove(post);
+    return { deleted: true };
 }
 } 

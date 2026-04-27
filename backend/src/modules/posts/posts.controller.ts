@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Req, UnauthorizedException } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { PostsService } from "./posts.service";
@@ -55,12 +55,7 @@ export class PostsController {
     ) {
         return this.postsService.getSavedPosts(req.user.sub, +page, +limit);
     }
-    @Get(":id")
-    @ApiOperation({ summary: "Get a post by ID" })
-    async findOne(@Param("id") id: string) {
-        return this.postsService.findById(id);
-    }
-
+    
     @Post(":id/like")
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
@@ -95,4 +90,29 @@ export class PostsController {
         return this.postsService.getUserPosts(username, req.user?.sub, +page, +limit);
     }
     
+    @Post(":id/hide")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    async hidePost(@Req() req: any, @Param("id") postId: string) {
+        return this.postsService.hidePost(req.user.sub, postId);
+    }
+
+    @Post(":id/unhide")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    async unhidePost(@Req() req: any, @Param("id") postId: string) {
+        return this.postsService.unhidePost(req.user.sub, postId);
+    }
+
+    @Delete(":id/delete")
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    async deletePost(@Req() req: any, @Param("id") postId: string) {
+        return this.postsService.deletePost(req.user.sub, postId);
+    }
+    @Get(":id")
+    @ApiOperation({ summary: "Get a post by ID" })
+    async findOne(@Param("id") id: string) {
+        return this.postsService.findById(id);
+    }
 }
