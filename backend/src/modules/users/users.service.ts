@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -167,8 +168,15 @@ export class UsersService {
       if (!user) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
+      if (updateUserDto.username) {
+        const existingUser = await this.userRepo.findOne({ 
+          where: { username: updateUserDto.username } 
+        });
+        if (existingUser && existingUser.id !== userId) {
+          throw new ConflictException("Username is already taken by another user");
+        }
+      }
       await this.userRepo.update(userId, updateUserDto);
-
       return await this.userRepo.findOne({ where: { id: userId } });
     } catch (error: any) {
       console.error("DATABASE ERROR:", error.message);

@@ -34,7 +34,7 @@ else
 
     vault kv put secret/ft_transcendence \
         jwt_secret="${JWT_SECRET:-dev-jwt-secret-change-in-production}" \
-        jwt_expiration="${JWT_EXPIRATION:-15m}" \
+        jwt_expiration="${JWT_EXPIRATION:-24h}" \
         jwt_refresh_expiration="${JWT_REFRESH_EXPIRATION:-7d}" \
         google_client_id="${GOOGLE_CLIENT_ID:-placeholder}" \
         google_client_secret="${GOOGLE_CLIENT_SECRET:-placeholder}" \
