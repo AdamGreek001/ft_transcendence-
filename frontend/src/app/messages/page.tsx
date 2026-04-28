@@ -79,7 +79,6 @@ export default function MessagesPage() {
     const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -851,29 +850,6 @@ export default function MessagesPage() {
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="px-3 sm:px-4 flex gap-2 mb-2">
-                    <button
-                        onClick={() => setActiveTab("direct")}
-                        className={`px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                            activeTab === "direct"
-                                ? "bg-violet-600 text-white"
-                                : "text-gray-400 hover:bg-gray-800/50"
-                        }`}
-                    >
-                        Direct
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("groups")}
-                        className={`px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                            activeTab === "groups"
-                                ? "bg-violet-600 text-white"
-                                : "text-gray-400 hover:bg-gray-800/50"
-                        }`}
-                    >
-                        Groups
-                    </button>
-                </div>
 
                 {/* Conversation List */}
                 <div className="flex-1 overflow-y-auto">

@@ -449,6 +449,7 @@ export default function NotificationsPage() {
         "User";
 
     const findUsersPanel = (
+        <>
         <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
             <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
             <div className="relative">
@@ -497,6 +498,42 @@ export default function NotificationsPage() {
                 ))}
             </div>
         </div>
+
+        {/* Who to follow */}
+        <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
+            {suggestedUsers.length === 0 ? (
+                <p className="text-sm text-gray-500">No suggestions yet</p>
+            ) : (
+                <div className="space-y-4">
+                    {suggestedUsers.map((suggested) => {
+                        const handle = suggested.username?.startsWith("@")
+                            ? suggested.username
+                            : `@${suggested.username}`;
+                        const profilePath = `/profile/${handle.replace(/^@/, "")}`;
+                        const displayName = suggested.displayName || suggested.username;
+                        const avatarSrc = normalizeAvatarUrl(suggested.avatarUrl, suggested.username);
+                        
+                        return (
+                            <div key={suggested.id} className="flex items-center gap-3">
+                                <Avatar src={avatarSrc} alt={displayName} size={40} />
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-white truncate">{displayName}</p>
+                                    <p className="text-sm text-gray-500 truncate">{handle}</p>
+                                </div>
+                                <Link
+                                    href={profilePath}
+                                    className="px-3 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:bg-gray-200 transition"
+                                >
+                                    View
+                                </Link>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+        </>
     );
 
     return (
@@ -692,41 +729,6 @@ export default function NotificationsPage() {
             {/* Right Sidebar */}
             <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto">
                 {findUsersPanel}
-
-                {/* Who to follow */}
-                <div className="bg-[#1a1a1f] rounded-2xl p-4 mb-6">
-                    <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
-                    {suggestedUsers.length === 0 ? (
-                        <p className="text-sm text-gray-500">No suggestions yet</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {suggestedUsers.map((suggested) => {
-                                const handle = suggested.username?.startsWith("@")
-                                    ? suggested.username
-                                    : `@${suggested.username}`;
-                                const profilePath = `/profile/${handle.replace(/^@/, "")}`;
-                                const displayName = suggested.displayName || suggested.username;
-                                const avatarSrc = normalizeAvatarUrl(suggested.avatarUrl, suggested.username);
-                                
-                                return (
-                                    <div key={suggested.id} className="flex items-center gap-3">
-                                        <Avatar src={avatarSrc} alt={displayName} size={40} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-white truncate">{displayName}</p>
-                                            <p className="text-sm text-gray-500 truncate">{handle}</p>
-                                        </div>
-                                        <Link
-                                            href={profilePath}
-                                            className="px-3 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:bg-gray-200 transition"
-                                        >
-                                            View
-                                        </Link>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
 
                 {/* Footer Links */}
                 <div className="mt-6 text-xs text-gray-600">

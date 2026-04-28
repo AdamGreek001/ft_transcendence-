@@ -7,12 +7,22 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import Link from "next/link";
+import { Avatar } from "@/components/ui";
 
 
 
 // ============================================================
 // TYPES — ready for real API data later
 // ============================================================
+
+interface UserSuggestion {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    isFollowing: boolean;
+}
 
 interface User {
   username: string;
@@ -1042,6 +1052,14 @@ export default function FeedPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UserSuggestion[]>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [searchUsersError, setSearchUsersError] = useState<string>("");
+  const [isFollowBusyId, setIsFollowBusyId] = useState<string | null>(null);
+  const [isFindUsersOpen, setIsFindUsersOpen] = useState(false);
+  const [suggestedUsers, setSuggestedUsers] = useState<UserSuggestion[]>([]);
+
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
 
@@ -1147,6 +1165,160 @@ export default function FeedPage() {
     }
   }, [authUser, currentUser]);
 
+  useEffect(() => {
+    if (!isHydrated || !authUser) return;
+
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchUsersError("");
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      setSearchUsersError("");
+      try {
+        const results = await apiClient.get<UserSuggestion[]>(
+          `/users/find?q=${encodeURIComponent(query)}`
+        );
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Failed to search users:", error);
+        setSearchResults([]);
+        setSearchUsersError("Search is unavailable right now");
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery, isHydrated, authUser]);
+
+  useEffect(() => {
+    if (!isHydrated || !authUser) return;
+
+    const fetchSuggestions = async () => {
+      try {
+        const data = await apiClient.get<UserSuggestion[]>("/users/suggestions");
+        setSuggestedUsers(data || []);
+      } catch (error) {
+        console.error("Failed to fetch suggestions:", error);
+      }
+    };
+
+    fetchSuggestions();
+  }, [isHydrated, authUser]);
+
+  const toggleFollowSearch = async (target: UserSuggestion) => {
+    setIsFollowBusyId(target.id);
+    try {
+      if (target.isFollowing) {
+        await apiClient.delete(`/users/${target.id}/follow`);
+      } else {
+        await apiClient.post(`/users/${target.id}/follow`);
+      }
+
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === target.id ? { ...u, isFollowing: !target.isFollowing } : u
+        )
+      );
+    } catch (error) {
+      console.error("Failed to toggle follow:", error);
+    } finally {
+      setIsFollowBusyId(null);
+    }
+  };
+
+  const findUsersPanel = (
+    <>
+    <div className="bg-[#1a1a1a] rounded-2xl p-4 mb-6 border border-slate-800">
+      <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
+      <div className="relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search users..."
+          className="w-full pl-9 pr-3 py-2 bg-[#0f0f0f] rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#895af6]/50 border border-slate-800"
+        />
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {isSearchingUsers && <p className="text-xs text-slate-500">Searching...</p>}
+        {!isSearchingUsers && !!searchUsersError && (
+          <p className="text-xs text-red-400">{searchUsersError}</p>
+        )}
+        {!isSearchingUsers && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+          <p className="text-xs text-slate-500">No users found</p>
+        )}
+        {!isSearchingUsers && searchResults.map((u) => (
+          <div key={u.id} className="flex items-center gap-3">
+            <Avatar
+              src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
+              alt={u.displayName || u.username}
+              size={34}
+            />
+            <div className="flex-1 min-w-0">
+              <Link href={`/profile/${u.username}`} className="block text-sm text-white font-medium truncate hover:text-[#895af6] transition">
+                {u.displayName || u.username}
+              </Link>
+              <Link href={`/profile/${u.username}`} className="block text-xs text-slate-500 truncate hover:text-slate-300 transition">
+                @{u.username}
+              </Link>
+            </div>
+            <button
+              onClick={() => toggleFollowSearch(u)}
+              disabled={isFollowBusyId === u.id}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${u.isFollowing ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-[#895af6] text-white hover:bg-[#7344d9]"}`}
+            >
+              {isFollowBusyId === u.id ? "..." : u.isFollowing ? "Following" : "Follow"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Who to follow */}
+    <div className="bg-[#1a1a1a] rounded-2xl p-4 mb-6 border border-slate-800">
+        <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
+        {suggestedUsers.length === 0 ? (
+            <p className="text-sm text-slate-500">No suggestions yet</p>
+        ) : (
+            <div className="space-y-4">
+                {suggestedUsers.map((suggested) => {
+                    const handle = suggested.username?.startsWith("@")
+                        ? suggested.username
+                        : `@${suggested.username}`;
+                    const profilePath = `/profile/${handle.replace(/^@/, "")}`;
+                    const displayName = suggested.displayName || suggested.username;
+                    const avatarSrc = normalizeAvatarUrl(suggested.avatarUrl, suggested.username);
+                    
+                    return (
+                        <div key={suggested.id} className="flex items-center gap-3">
+                            <Avatar src={avatarSrc} alt={displayName} size={40} />
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-white truncate">{displayName}</p>
+                                <p className="text-sm text-slate-500 truncate">{handle}</p>
+                            </div>
+                            <Link
+                                href={profilePath}
+                                className="px-3 py-1.5 bg-slate-800 text-white rounded-full text-xs font-medium hover:bg-slate-700 transition"
+                            >
+                                View
+                            </Link>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+    </div>
+    </>
+  );
+
  async function handleAddPost(text: string, image?: File) {
   try {
     let imageUrl: string | undefined;
@@ -1167,7 +1339,15 @@ export default function FeedPage() {
     <div className="flex h-screen bg-[#0d0d0f]">
       <AppSidebar />
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0f0f0f]">
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="xl:hidden sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur px-4 py-3 border-b border-slate-800 flex justify-end">
+            <button
+              onClick={() => setIsFindUsersOpen(true)}
+              className="px-3 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-[#895af6] hover:bg-slate-800/50 transition"
+            >
+              Find users
+            </button>
+          </div>
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
             <CreatePost
@@ -1205,6 +1385,39 @@ export default function FeedPage() {
           </div>
         </div>
       </div>
+
+      {isFindUsersOpen && (
+          <div className="fixed inset-0 z-50 xl:hidden">
+              <button
+                  type="button"
+                  onClick={() => setIsFindUsersOpen(false)}
+                  className="absolute inset-0 bg-black/60"
+                  aria-label="Close find users panel"
+              />
+              <aside className="absolute right-0 top-0 h-full w-[min(90vw,24rem)] overflow-y-auto border-l border-slate-800/60 bg-[#0f0f0f] p-4 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Find users</h2>
+                      <button
+                          type="button"
+                          onClick={() => setIsFindUsersOpen(false)}
+                          className="p-2 rounded-full text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition"
+                          aria-label="Close"
+                      >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                      </button>
+                  </div>
+                  {findUsersPanel}
+              </aside>
+          </div>
+      )}
+
+      {/* Right Sidebar */}
+      <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto bg-[#0f0f0f] border-l border-slate-800/50 custom-scrollbar">
+        {findUsersPanel}
+      </aside>
+
     </div>
   );
 }
