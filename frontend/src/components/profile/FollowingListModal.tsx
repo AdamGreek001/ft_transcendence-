@@ -54,51 +54,67 @@ export function FollowListModal({
   }, [handleClose]);
 
   useEffect(() => {
-    if (lists[tab] !== null) return;
+    if (!currentUser) return;
+  
     let cancelled = false;
     setLoading(true);
+  
     (async () => {
       try {
         const data = await apiClient.get<FollowUser[]>(
-          `/users/${profileId}/${tab}?currentUserId=${currentUser?.id ?? ""}`
+          `/users/${profileId}/${tab}?currentUserId=${currentUser.id}`
         );
-        if (!cancelled)
+  
+        if (!cancelled) {
           setLists((prev) => ({ ...prev, [tab]: data }));
+        }
       } catch (err) {
         console.error("Failed to load", tab, err);
-        if (!cancelled) setLists((prev) => ({ ...prev, [tab]: [] }));
+        if (!cancelled) {
+          setLists((prev) => ({ ...prev, [tab]: [] }));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
+  
     return () => { cancelled = true; };
-  }, [tab, profileId, lists]);
+  
+  }, [tab, profileId, currentUser]);
 
   const handleToggleFollow = async (u: FollowUser) => {
-  if (u.id === currentUser?.id) return;
-  setFollowBusy((p) => ({ ...p, [u.id]: true }));
-  try {
-    if (u.isFollowing) {
-      await apiClient.delete(`/users/${u.id}/follow`);
-    } else {
-      await apiClient.post(`/users/${u.id}/follow`);
+    if (u.id === currentUser?.id || followBusy[u.id]) return;
+  
+    setFollowBusy((p) => ({ ...p, [u.id]: true }));
+  
+    try {
+      if (u.isFollowing) {
+        await apiClient.delete(`/users/${u.id}/follow`);
+      } else {
+        await apiClient.post(`/users/${u.id}/follow`);
+      }
+  
+      setLists((prev) => {
+        const patch = (list: FollowUser[] | null) =>
+          list?.map((x) =>
+            x.id === u.id ? { ...x, isFollowing: !x.isFollowing } : x
+          ) ?? null;
+  
+        return {
+          followers: patch(prev.followers),
+          following: patch(prev.following),
+        };
+      });
+  
+      onFollowChange?.(u.id, !u.isFollowing);
+  
+    } catch (err) {
+      console.error("Toggle follow error:", err);
+    } finally {
+      setFollowBusy((p) => ({ ...p, [u.id]: false }));
+      setHoverUnfollow((p) => ({ ...p, [u.id]: false }));
     }
-    const patch = (list: FollowUser[] | null) =>
-      list?.map((x) =>
-        x.id === u.id ? { ...x, isFollowing: !x.isFollowing } : x
-      ) ?? null;
-    setLists((prev) => ({
-      followers: patch(prev.followers),
-      following: patch(prev.following),
-    }));
-    onFollowChange?.(u.id, !u.isFollowing); // ← notify parent
-  } catch (err) {
-    console.error("Toggle follow error:", err);
-  } finally {
-    setFollowBusy((p) => ({ ...p, [u.id]: false }));
-    setHoverUnfollow((p) => ({ ...p, [u.id]: false }));
-  }
-};
+  };
 
   const users = lists[tab];
   const closeAndReset  = () => {

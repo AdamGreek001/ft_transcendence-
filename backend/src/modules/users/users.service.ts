@@ -132,7 +132,7 @@ export class UsersService {
     return this.userRepo.findOne({ where: { id } });
   }
 
-  async findByUsername(username: string) {
+  async findByUsername(username: string, currentUserId?: string) {
     const user = await this.userRepo.findOne({
       where: { username },
       select: [
@@ -146,16 +146,31 @@ export class UsersService {
         "lastSeenAt",
       ],
     });
+  
     if (!user) throw new NotFoundException("User not found");
-
+  
     const [postCount, followerCount, followingCount] = await Promise.all([
       this.userRepo.manager.count("posts", { where: { authorId: user.id } }),
       this.followRepo.count({ where: { followingId: user.id } }),
       this.followRepo.count({ where: { followerId: user.id } }),
     ]);
-
+  
+    let isFollowing = false;
+  
+    if (currentUserId && currentUserId !== user.id) {
+      const follow = await this.followRepo.findOne({
+        where: {
+          followerId: currentUserId,
+          followingId: user.id,
+        },
+      });
+  
+      isFollowing = !!follow;
+    }
+  
     return {
       ...user,
+      isFollowing,
       _count: {
         posts: postCount,
         followers: followerCount,
@@ -210,7 +225,7 @@ export class UsersService {
     });
 
     let followedByMe = new Set<string>();
-    if (currentUserId) {
+    if (currentUserId && currentUserId !== "") {
       const mine = await this.followRepo.find({
         where: {
           followerId: currentUserId,
@@ -237,7 +252,7 @@ export class UsersService {
     });
 
     let followedByMe = new Set<string>();
-    if (currentUserId) {
+    if (currentUserId && currentUserId !== "") {
       const mine = await this.followRepo.find({
         where: {
           followerId: currentUserId,

@@ -595,14 +595,12 @@ function ProfileHoverCard({ author, currentUser, children }: {
     setShow(true);
     if (!profile) {
       try {
-        const [data, following] = await Promise.all([
-          apiClient.get<any>(`/users/${author.username}`),
-          currentUser ? apiClient.get<any[]>(`/users/${currentUser.id}/following`) : Promise.resolve([]),
-        ]);
+        const data = await apiClient.get<any>(
+          `/users/${author.username}?currentUserId=${currentUser?.id}`
+        );
+        
         setProfile(data);
-        setIsFollowing(following.some((f: any) =>
-          f.followingId === author.id || f.following?.id === author.id
-        ));
+        setIsFollowing(data.isFollowing);
       } catch (err) {
         console.error(err);
       }

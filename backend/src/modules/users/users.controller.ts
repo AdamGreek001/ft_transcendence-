@@ -117,12 +117,12 @@ export class UsersController {
   }
 
   @Get(":username")
-  @SkipThrottle()
-  @ApiOperation({ summary: "Get user profile by username" })
-  async getProfile(@Param("username") username: string) {
-    return this.usersService.findByUsername(username);
-  }
-
+async getProfile(
+  @Param("username") username: string,
+  @Query("currentUserId") currentUserId?: string,
+) {
+  return this.usersService.findByUsername(username, currentUserId);
+}
   @Patch("settings/update")
   @UseGuards(JwtAuthGuard)
   async update(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {

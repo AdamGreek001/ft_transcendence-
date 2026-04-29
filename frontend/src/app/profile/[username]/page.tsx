@@ -79,8 +79,11 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await apiClient.get<UserProfileResponse>(`/users/${resolved.username}`);
+            const data = await apiClient.get<UserProfileResponse & { isFollowing?: boolean }>(
+                `/users/${resolved.username}?currentUserId=${currentUser?.id ?? ""}`
+            );
             setProfile(data);
+            setIsFollowing(data.isFollowing ?? false);
         } catch (err: any) {
             const status = err?.response?.status;
             setProfile(null);
@@ -120,9 +123,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await apiClient.get<UserProfileResponse>(`/users/${resolved.username}`);
+                const data = await apiClient.get<UserProfileResponse & { isFollowing?: boolean }>(
+                    `/users/${resolved.username}?currentUserId=${currentUser?.id ?? ""}`
+                );
                 if (cancelled) return;
                 setProfile(data);
+                setIsFollowing(data.isFollowing ?? false); // ← initialize from backend
             } catch (err: any) {
                 if (cancelled) return;
                 const status = err?.response?.status;
@@ -134,7 +140,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         };
         load();
         return () => { cancelled = true; };
-    }, [params]);
+    }, [params, currentUser?.id]); 
 
     // load posts when profile is ready or tab changes
     useEffect(() => {
@@ -160,38 +166,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         loadPosts();
     }, [profile, activeTab]);
 
-    useEffect(() => {
-        let cancelled = false;
-        const resolveFollowState = async () => {
-            if (!currentUser?.id || !profile?.id) return;
-            if (currentUser.username === profile.username) {
-                setIsFollowing(false);
-                setIsFriend(false);
-                setProfileFollowsCurrent(false);
-                return;
-            }
-            try {
-                const [following, followers] = await Promise.all([
-                    apiClient.get<FollowingRelation[]>(`/users/${currentUser.id}/following`),
-                    apiClient.get<FollowerRelation[]>(`/users/${currentUser.id}/followers`),
-                ]);
-                if (cancelled) return;
-                const followsProfile = following.some(
-                    (item) => item.followingId === profile.id || item.following?.id === profile.id,
-                );
-                setIsFollowing(followsProfile);
-                const profileFollowsCurrent = followers.some(
-                    (item) => item.followerId === profile.id || item.follower?.id === profile.id,
-                );
-                setProfileFollowsCurrent(profileFollowsCurrent);
-                setIsFriend(followsProfile && profileFollowsCurrent);
-            } catch (error) {
-                console.error("Failed to resolve follow state:", error);
-            }
-        };
-        resolveFollowState();
-        return () => { cancelled = true; };
-    }, [currentUser?.id, currentUser?.username, profile?.id, profile?.username]);
+    
 
     const handleToggleFollow = async () => {
         if (!profile) return;
@@ -199,10 +174,13 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         try {
             if (isFollowing) {
                 await apiClient.delete(`/users/${profile.id}/follow`);
+                setIsFollowing(false);
+                setIsFriend(false);
             } else {
                 await apiClient.post(`/users/${profile.id}/follow`);
+                setIsFollowing(true);
+                setIsFriend(profileFollowsCurrent); // ← friend only if they follow back
             }
-            setIsFollowing((prev) => !prev);
             setProfile((prev) => {
                 if (!prev) return prev;
                 const followers = prev._count?.followers ?? 0;
@@ -210,11 +188,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     ...prev,
                     _count: {
                         ...prev._count,
-                        followers: isFollowing ? Math.max(0, followers - 1) : followers + 1,
+                        followers: isFollowing
+                            ? Math.max(0, followers - 1)
+                            : followers + 1,
                     },
                 };
             });
-            setIsFriend(isFollowing ? false : profileFollowsCurrent);
         } catch (error) {
             console.error("Failed to toggle follow:", error);
         } finally {
