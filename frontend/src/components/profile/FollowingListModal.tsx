@@ -236,11 +236,7 @@ export function FollowListModal({
                   </div>
 
                   {isYou ? (
-                    <span
-                      className="text-xs px-3 py-1 rounded-full flex-shrink-0"
-                      style={{ border: "1px solid #222", color: "#444" }}
-                    >
-                      You
+                    <span>
                     </span>
                   ) : (
                     <button
