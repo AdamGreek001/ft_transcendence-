@@ -20,8 +20,8 @@ export default async function HomePage() {
                     </div>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="#features" className="text-gray-400 hover:text-white transition text-sm">Features</Link>
-                        <Link href="#community" className="text-gray-400 hover:text-white transition text-sm">Community</Link>
-                        <Link href="#safety" className="text-gray-400 hover:text-white transition text-sm">Safety</Link>
+                        <Link href="#features" className="text-gray-400 hover:text-white transition text-sm">Community</Link>
+                        <Link href="#features" className="text-gray-400 hover:text-white transition text-sm">Safety</Link>
                         <Link href="#about" className="text-gray-400 hover:text-white transition text-sm">About</Link>
                     </div>
                     {isLoggedIn ? (
@@ -47,10 +47,7 @@ export default async function HomePage() {
             <section className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6">
                 <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-8 sm:gap-12">
                     <div className="flex-1 text-center lg:text-left">
-                        <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-1.5 mb-6">
-                            <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
-                            <span className="text-sm text-violet-400">V2.0 BETA IS HERE</span>
-                        </div>
+
                         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                             Connect with<br />
                             <span className="text-violet-400 italic">your world</span>
@@ -62,12 +59,7 @@ export default async function HomePage() {
                             <Link href={isLoggedIn ? "/feed" : "/register"} className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-full font-medium transition">
                                 {isLoggedIn ? "Go to Home" : "Get Started for Free"}
                             </Link>
-                            <button className="w-full sm:w-auto flex items-center justify-center gap-2 text-white px-6 py-3 rounded-full font-medium border border-gray-700 hover:bg-gray-800/50 transition">
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                </svg>
-                                See how it works
-                            </button>
+
                         </div>
                         <div className="flex items-center justify-center lg:justify-start gap-3 flex-wrap">
                             <div className="flex -space-x-2">
@@ -169,7 +161,7 @@ export default async function HomePage() {
                             <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
                                 <h3 className="text-xl sm:text-2xl font-bold mb-2">Seamless Sharing</h3>
                                 <p className="text-gray-300 text-sm">
-                                    Connecting with friends and sharing content across platforms has never been easier.
+                                    Connecting with friends has never been easier.
                                 </p>
                             </div>
                         </div>
@@ -177,27 +169,20 @@ export default async function HomePage() {
                 </div>
             </section>
 
-            {/* CTA Section */}
-            <section className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6 bg-gradient-to-r from-violet-600 to-purple-600">
+
+
+            {/* About Section */}
+            <section id="about" className="py-10 sm:py-14 lg:py-20 px-4 sm:px-6">
                 <div className="max-w-3xl mx-auto text-center">
-                    <h2 className="text-3xl sm:text-4xl font-bold mb-4">Be the first to join the movement</h2>
-                    <p className="text-violet-100 mb-8">
-                        We&apos;re rolling out access in waves. Enter your email to get early access and exclusive updates on our journey.
+                    <p className="text-gray-400 text-lg leading-relaxed mb-6">
+                        StitchSocial was born out of a desire to create a more authentic, community-driven space online. 
+                        We believe that technology should bring people together, not isolate them in echo chambers. 
+                        Our platform is designed to foster genuine connections, spark meaningful conversations, 
+                        and empower users to build communities around their shared passions.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                        <input
-                            type="email"
-                            placeholder="Enter your email address"
-                            className="flex-1 px-5 py-3 bg-white/10 border border-white/20 rounded-full text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
-                        />
-                        <button className="bg-white text-violet-600 px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition flex items-center justify-center gap-2">
-                            Join Waitlist
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
-                        </button>
-                    </div>
-                    <p className="text-sm text-violet-200 mt-4">No spam. Ever. Just product updates and early access invites.</p>
+                    <p className="text-gray-400 text-lg leading-relaxed">
+                        Join us on our mission to weave a tighter, more vibrant social fabric for everyone.
+                    </p>
                 </div>
             </section>
 
