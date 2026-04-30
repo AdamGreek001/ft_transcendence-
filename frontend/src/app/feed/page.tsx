@@ -229,13 +229,11 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
     <section className="bg-[#1a1a1a] rounded-2xl border border-slate-800 shadow-lg p-4 flex flex-col gap-4">
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
-          <Image 
+          <Avatar
             src={avatarUrl}
-            alt="Your profile picture" 
-            width={40} 
-            height={40} 
-            className="rounded-full object-cover"
-          />  
+            alt="Your profile picture"
+            size={40}
+          />
         </div>
         <textarea
           className="w-full bg-transparent text-slate-100 resize-none py-2 text-sm custom-scrollbar outline-none overflow-y-auto max-h-32"
@@ -313,12 +311,11 @@ return (
           <div 
               className="w-8 h-8 rounded-full overflow-hidden shrink-0 cursor-pointer"
               onClick={() => router.push(`/profile/${comment.author.username}`)}>
-            <Image
+            <Avatar
               src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
               alt={comment.author.username}
-              width={32}
-              height={32}
-              className="rounded-full object-cover"
+              size={32}
+              onClick={() => router.push(`/profile/${comment.author.username}`)}
             />
           </div>
         </ProfileHoverCard>
@@ -373,6 +370,7 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   const MAX_COMMENT_LENGTH = 500;
   const isCommentTooLong = commentText.length > MAX_COMMENT_LENGTH;
   const canComment = commentText.trim().length > 0 && !isCommentTooLong;
+  const router = useRouter();
 
   
   useEffect(() => {
@@ -498,12 +496,11 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
       {/* Input — at bottom */}
       <div className="flex gap-3 items-end border-t border-slate-800 pt-4">
         <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 mb-1">
-          <Image
+          <Avatar
             src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
             alt="you"
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
+            size={36}
+            onClick={() => router.push(`/profile/${currentUser?.username}`)}
           />
         </div>
         <div className="flex-1">
@@ -645,12 +642,10 @@ function ProfileHoverCard({ author, currentUser, children }: {
     >
       {/* Header row */}
       <div className="flex items-start justify-between">
-        <Image
+        <Avatar
           src={normalizeAvatarUrl(author.avatarUrl, author.username)}
           alt={author.username}
-          width={52}
-          height={52}
-          className="rounded-full object-cover cursor-pointer"
+          size={52}
           onClick={() => router.push(`/profile/${author.username}`)}
         />
         {!isOwnProfile && currentUser && (
@@ -900,12 +895,11 @@ async function handleUnhide() {
               onClick={() => router.push(`/profile/${author.username}`)}
             >
               <div className="size-10 rounded-full overflow-hidden shrink-0">
-                <Image
+                <Avatar
                   src={normalizeAvatarUrl(author.avatarUrl, author.username)}
                   alt={author.username}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
+                  size={40}
+                  onClick={() => router.push(`/profile/${author.username}`)}
                 />
               </div>
               <div className="flex flex-col">
