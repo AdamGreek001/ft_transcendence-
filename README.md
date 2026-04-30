@@ -190,19 +190,18 @@ make up
 | User Registration   | Email/password signup with validation                | kelmounj        |
 | Google OAuth        | Social login via Google                              | kelmounj        |
 | Two-Factor Auth     | TOTP-based 2FA with authenticator apps               | kelmounj        |
-| User Profiles       | View/edit profile, avatar, bio, follow/block         | \<login3\>, \<login4\> |
-| Social Feed         | Create posts, infinite scroll, personalized timeline | \<login3\>      |
-| Likes & Comments    | React to and discuss posts                           | \<login3\>, \<login4\> |
-| Real-time Chat      | WebSocket direct messaging, typing indicators        | \<login4\>      |
-| Notifications       | Real-time alerts for social interactions             | \<login5\>      |
-| Search              | User and post search with filters                    | \<login5\>      |
-| Media Upload        | Avatar and post image uploads (local storage)         | \<login5\>      |
-| Public API          | Rate-limited REST API (5+ endpoints)                 | \<login4\>      |
-| i18n                | English, French, Arabic translations                 | \<login3\>      |
+| User Profiles       | View/edit profile, avatar, bio, follow/block         | ehafiane, mjuicha |
+| Social Feed         | Create posts, infinite scroll, personalized timeline | mjuicha         |
+| Likes & Comments    | React to and discuss posts                           | mjuicha         |
+| Real-time Chat      | WebSocket direct messaging, typing indicators        | ehafiane        |
+| Notifications       | Real-time alerts for social interactions             | ehafiane        |
+| Search              | User and post search with filters                    | ehafiane        |
+| Media Upload        | Avatar and post image uploads (local storage)        | ataai           |
+| Public API          | Rate-limited REST API (5+ endpoints)                 | eel-alao        |
 | Privacy & Terms     | Legal pages (privacy policy, terms of service)       | kelmounj        |
-| WAF/ModSecurity     | Web Application Firewall with OWASP CRS              | \<login2\>      |
-| Vault Secrets       | HashiCorp Vault for encrypted secrets management     | \<login2\>      |
-| Monitoring          | Prometheus metrics + Grafana dashboards              | \<login2\>      |
+| WAF/ModSecurity     | Web Application Firewall with OWASP CRS              | ataai           |
+| Vault Secrets       | HashiCorp Vault for encrypted secrets management     | ataai           |
+| Monitoring          | Prometheus metrics + Grafana dashboards              | eel-alao        |
 
 ---
 
@@ -210,16 +209,15 @@ make up
 
 | Module                  | Type  | Points | Justification                                  | Developer(s)    |
 |------------------------|-------|--------|-------------------------------------------------|-----------------|
-| Use a Framework (Backend) | Major | 2    | NestJS for modular, typed backend               | \<login4\>      |
-| Use a Framework (Frontend)| Major | 2   | Next.js for SSR, App Router, React 19           | \<login3\>      |
-| Use a database for Backend| Minor | 1   | PostgreSQL with TypeORM                         | \<login4\>      |
-| Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | kelmounj , \<login4\> |
+| Use a Framework (Backend) | Major | 2    | NestJS for modular, typed backend              | all.            |
+| Use a Framework (Frontend)| Major | 2   | Next.js for SSR, App Router, React 19           | all.            |
+| Use a database for Backend| Minor | 1   | PostgreSQL with TypeORM                         | all.            |
+| Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | kelmounj, mjuicha |
 | Remote Authentication (Google) | Major | 2 | Google OAuth2 integration                    | kelmounj        |
 | Two-Factor Auth (TOTP)  | Major | 2     | TOTP authenticator app support                  | kelmounj        |
-| Multiple Language Support| Minor | 1    | i18n with next-intl (EN/FR/AR)                  | \<login3\>      |
-| WAF/ModSecurity          | Major | 2    | OWASP CRS, strict request filtering             | \<login2\>      |
-| HashiCorp Vault          | Major | 2    | Encrypted secrets management                    | \<login2\>      |
-| Monitoring (ELK/Prometheus)| Minor| 1   | Prometheus + Grafana dashboards                 | \<login2\>      |
+| WAF/ModSecurity          | Major | 2    | OWASP CRS, strict request filtering             | ataai.          |
+| HashiCorp Vault          | Major | 2    | Encrypted secrets management                    | ataai.          |
+| Monitoring (ELK/Prometheus)| Minor| 1   | Prometheus + Grafana dashboards                 | eel-alao.       |
 
 **Total: 17 points**
 
