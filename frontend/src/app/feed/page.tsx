@@ -9,7 +9,8 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Avatar } from "@/components/ui";
-
+import { toast } from "@/lib/toast";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 
 // ============================================================
@@ -131,15 +132,24 @@ function getRelativeTime(date: Date): string {
   return date.toLocaleDateString("en-US", { day: "numeric", month: "long" });
 }
 
+let globalTick = 0;
+let listeners: (() => void)[] = [];
+
+setInterval(() => {
+  globalTick++;
+  listeners.forEach((fn) => fn());
+}, 60000);
+
 function useRelativeTime(date: Date): string {
-  const [, setTick] = useState(0);
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 30000); // update every 30 seconds
+    const update = () => forceUpdate((t) => t + 1);
+    listeners.push(update);
 
-    return () => clearInterval(interval);
+    return () => {
+      listeners = listeners.filter((l) => l !== update);
+    };
   }, []);
 
   return getRelativeTime(date);
@@ -203,27 +213,54 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
     </div>
   );
 }
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImage(file);
-    setImagePreview(URL.createObjectURL(file));
+function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+
+  if (!allowedTypes.includes(file.type)) {
+    toast.error("Only PNG, JPG, JPEG, WEBP images are allowed");
+    return;
   }
+
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("Image is too large (max 5MB)");
+    return;
+  }
+
+  setImage(file);
+  setImagePreview(URL.createObjectURL(file));
+}
 
   function handleRemoveImage() {
     setImage(null);
     setImagePreview(null);
   }
 
-  function handlePost() {
-  if (!canPost) return;
-    console.log("Posting:", text, image);
-  onSubmit(text, image ?? undefined);
-  setText("");
-  setImage(null);
-  setImagePreview(null);
-  if (fileInputRef.current) fileInputRef.current.value = ""; // reset input
-}
+  async function handlePost() {
+    if (!canPost) return;
+  
+    try {
+      console.log("Posting:", text, image);
+  
+      await onSubmit(text, image ?? undefined);
+      toast.success("Your post was sent");
+  
+      setText("");
+      setImage(null);
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        toast.error("Slow down! Too many requests");
+      }
+      else {
+      console.error("Create post error:", error);
+      toast.error("Failed to create post. Please try again.");
+      }
+    }
+  }
 
   return (
     <section className="bg-[#1a1a1a] rounded-2xl border border-slate-800 shadow-lg p-4 flex flex-col gap-4">
@@ -442,9 +479,10 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   }
 }
 
-
+  const [loadingComments, setLoadingComments] = useState(false);
   async function handleSend() {
-  if (!canComment) return;
+  if (!canComment || loadingComments) return;
+  setLoadingComments(true);
   try {
     const text = replyingTo
       ? commentText.replace(`@${replyingTo.name} `, "").trim()
@@ -465,14 +503,25 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
             : c
         )
       );
+      toast.success(`Reply sent to @${replyingTo.name}`);
     } else {
       setCommentsList((prev) => [created, ...prev]);
+      toast.success("Comment posted successfully");
     }
 
     setCommentText("");
     setReplyingTo(null);
-  } catch (err) {
-    console.error("Comment error:", err);
+  } catch (err : any) {
+    if (err.response?.status === 429) {
+      toast.error("You're commenting too fast! Please slow down.");
+      return;
+    }
+    else {
+    toast.error("Failed to send comment. Please try again.");
+    }
+  }
+  finally {
+    setLoadingComments(false);
   }
 }
 
@@ -598,8 +647,12 @@ function ProfileHoverCard({ author, currentUser, children }: {
         
         setProfile(data);
         setIsFollowing(data.isFollowing);
-      } catch (err) {
-        console.error(err);
+      } catch (err : any) {
+        if (err.response?.status === 429) {
+          toast.error("Too many requests. Please slow down.");
+        } else {
+          toast.error("Failed to load profile.");
+        }
       }
     }
   }
@@ -614,12 +667,18 @@ function ProfileHoverCard({ author, currentUser, children }: {
       if (isFollowing) {
         await apiClient.delete(`/users/${author.id}/follow`);
         setIsFollowing(false);
+        toast.success(`Unfollowed @${author.username}`);
       } else {
         await apiClient.post(`/users/${author.id}/follow`);
         setIsFollowing(true);
+        toast.success(`following @${author.username}`);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err : any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please slow down.");
+      } else {
+        toast.error("Action failed. Please try again.");
+      }
     } finally {
       setFollowLoading(false);
       setHoverFollowing(false);
@@ -752,9 +811,11 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
 
 
   const relativeTime = useRelativeTime(new Date(createdAt));
+  const [loading, setLoading] = useState(false);
 
   async function handleLike() {
-  // optimistic update — change UI immediately
+    if (loading) return;
+    setLoading(true);
   setLiked(!liked);
   setLikeCount(liked ? likeCount - 1 : likeCount + 1);
 
@@ -764,91 +825,130 @@ export function PostCard({ id, content, imageUrl, createdAt, author, _count,
     // revert if API fails
     setLiked(liked);
     setLikeCount(likeCount);
-    console.error("Like error:", err);
+    toast.error("Failed to update like");
+  }
+  finally {
+    setLoading(false);
   }
 }
   useEffect(() => {
-    async function checkFollow() {
-        if (!currentUser || isOwnPost) return;
-        try {
-            const following = await apiClient.get<any[]>(`/users/${currentUser.id}/following`);
-            setIsFollowing(following.some((f: any) => f.followingId === author.id || f.following?.id === author.id));
-        } catch (err) {
-            console.error("Follow check error:", err);
-        }
-    }
-    checkFollow();
-}, [currentUser, author.id]);
+  async function checkFollow() {
+    if (!currentUser || isOwnPost) return;
 
-  async function handleFollow() {
-    setFollowLoading(true);
     try {
-        if (isFollowing) {
-            await apiClient.delete(`/users/${author.id}/follow`);
-            setIsFollowing(false);
-        } else {
-            await apiClient.post(`/users/${author.id}/follow`);
-            setIsFollowing(true);
-        }
-    } catch (err) {
-        console.error("Follow error:", err);
-    } finally {
-        setFollowLoading(false);
+      const following = await apiClient.get<any[]>(
+        `/users/${currentUser.id}/following`
+      );
+
+      setIsFollowing(
+        following.some(
+          (f: any) =>
+            f.followingId === author.id || f.following?.id === author.id
+        )
+      );
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please wait a moment.");
+      } else {
+        console.error("Follow check failed:", err);
+      }
     }
-}
+  }
+
+  checkFollow();
+}, [currentUser, author.id]);
 
   async function handleSave() {
   const wasSaved = saved;
+  
   setSaved(!wasSaved);
   try {
     await api.posts.save(id);
-  } catch (err) {
+    toast.info(!wasSaved ? "Post saved" : "Post unsaved");
+  } catch (err : any) {
     setSaved(wasSaved);
-    console.error("Save error:", err);
+    if (err.response?.status === 429) {
+      toast.error("You're saving too fast. Please slow down.");
+    } else {
+      toast.error("Failed to update saved posts. Try again.");
+    }
   }
 }
 
-  async function handleShare() {
-  // optimistic update
+async function handleShare() {
   const wasShared = shared;
   setShared(!wasShared);
   setShareCount(wasShared ? shareCount - 1 : shareCount + 1);
 
   try {
     await api.posts.share(id);
-  } catch (err) {
-    // revert on fail
+    toast.success(!wasShared ? "Post shared" : "Share removed");
+  } catch (err: any) {
     setShared(wasShared);
     setShareCount(shareCount);
-    console.error("Share error:", err);
+
+    if (err.response?.status === 429) {
+      toast.error("You're sharing too fast. Please slow down.");
+    } else {
+      toast.error("Failed to update share. Try again.");
+    }
   }
 }
 
 async function handleDelete() {
     try {
         await api.posts.delete(id);
-        setHidden(true); // remove from UI after delete
-    } catch (err) {
-        console.error("Delete error:", err);
+        setHidden(true);
+        toast.info("Post deleted");
+    } catch (err : any) {
+        if (err.response?.status === 429) {
+            toast.error("You're doing that too fast. Please slow down.");
+        } else {
+            toast.error("Failed to delete post. Please try again.");
+        }
     }
 }
 
 async function handleHide() {
-    try {
-        await api.posts.hide(id);
-        setHidden(true);
-    } catch (err) {
-        console.error("Hide error:", err);
+  const wasHidden = hidden;
+
+  setHidden(true);
+
+  try {
+    await api.posts.hide(id);
+    toast.info("Post hidden");
+  } catch (err: any) {
+    console.error("Hide error:", err);
+
+    setHidden(wasHidden);
+
+    if (err.response?.status === 429) {
+      toast.error("You're doing that too fast. Please slow down.");
+    } else {
+      toast.error("Failed to hide post. Try again.");
     }
+  }
 }
 
 async function handleUnhide() {
-    try {
-        await api.posts.unhide(id);
-        setHidden(false);
-    } catch (err) {
-        console.error("Unhide error:", err);
+  const wasHidden = hidden;
+
+  setHidden(false);
+
+  try {
+    await api.posts.unhide(id);
+    toast.info("Post restored");
+  } catch (err: any) {
+    console.error("Unhide error:", err);
+
+    setHidden(wasHidden);
+
+    if (err.response?.status === 429) {
+      toast.error("You're doing that too fast. Please slow down.");
+    } else {
+      toast.error("Failed to restore post. Try again.");
     }
+  }
 }
     if (hidden && isOwnPost) return null;
     if (hidden) return (
@@ -945,7 +1045,6 @@ async function handleUnhide() {
 
       {/* Image content */}
       {imageUrl && (
-        console.log("Rendering image with URL:", imageUrl),
         <div className="w-full overflow-hidden">
           <Image
             src={normalizeAvatarUrl(imageUrl)}
@@ -1039,11 +1138,8 @@ async function handleUnhide() {
 
 export default function FeedPage() {
   const { user: authUser, isHydrated } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
-
+  const [feedError, setFeedError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserSuggestion[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -1051,48 +1147,15 @@ export default function FeedPage() {
   const [isFollowBusyId, setIsFollowBusyId] = useState<string | null>(null);
   const [isFindUsersOpen, setIsFindUsersOpen] = useState(false);
   const [suggestedUsers, setSuggestedUsers] = useState<UserSuggestion[]>([]);
+  
 
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
 
-  async function loadFeed() {
-    try {
-      setLoading(true);
-      const res = await api.posts.getFeed();
-      const nextPosts = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-          ? res
-          : [];
-
-      setPosts(nextPosts);
-      sessionStorage.setItem("feed_cache", JSON.stringify(nextPosts));
-      setError(null);
-    } catch (err: any) {
-      console.error("Feed error:", err);
-
-      // Keep feed populated on transient API failures (including 429 rate limits).
-      try {
-        const cached = sessionStorage.getItem("feed_cache");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPosts(parsed);
-            // Don't show error banner when we have cached data to display
-            setError(null);
-            return;
-          }
-        }
-      } catch {
-        // Ignore cache parse errors.
-      }
-
-      // Only set error when we have no cached data to show
-      setError(err.message || "Failed to load feed");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { items: posts, isLoading: loading, hasMore, ref: loaderRef, setItems: setPosts } = useInfiniteScroll<Post>({
+    fetchUrl: "/posts/feed",
+    limit: 20,
+});
 
   async function fetchCurrentUser() {
     try {
@@ -1122,34 +1185,7 @@ export default function FeedPage() {
     }
   }
 
-  useEffect(() => {
-  if (!isHydrated) return;
-
-  async function init() {
-    setLoading(true);
-
-    try {
-      const cached = sessionStorage.getItem("feed_cache");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPosts(parsed);
-        }
-      }
-    } catch {
-      // Ignore cache parse errors.
-    }
-
-    await Promise.all([loadFeed(), fetchCurrentUser()]);
-    setLoading(false);
-  }
-  init();
-
-  const interval = setInterval(() => {
-    Promise.all([loadFeed(), fetchCurrentUser()]);
-  }, 30000);
-  return () => clearInterval(interval);
-}, [isHydrated]);
+  
 
   useEffect(() => {
     if (authUser && !currentUser) {
@@ -1354,26 +1390,41 @@ export default function FeedPage() {
               </div>
             )}
 
-            {!loading && error && (
+            {!loading && feedError && (
               <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
                 Failed to load feed. Refresh again in a moment.
               </div>
             )}
 
-            {!loading && !error && posts.length === 0 && (
+            {!loading && !feedError && posts.length === 0 && (
               <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
                 No posts yet.
               </div>
             )}
-
-            {posts.map((post) => (
-              <PostCard
-                key={post.feedItemId || post.id}
-                {...post}
-                currentUser={currentUser}
-              />
-            ))}
-
+            {!loading && !feedError && posts.length > 0 && (
+            <>
+              {posts.map((post) => (
+                <PostCard
+                  key={post.feedItemId || post.id}
+                  {...post}
+                  currentUser={currentUser}
+                />
+              ))}
+          
+              <div ref={loaderRef} className="py-6 flex justify-center">
+                {loading && (
+                  <div className="text-slate-500 text-sm animate-pulse">
+                    Loading more posts...
+                  </div>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <div className="text-slate-600 text-sm">
+                    You're all caught up ✓
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           </div>
         </div>
       </div>

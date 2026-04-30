@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { setRequestLocale } from "next-intl/server";
+import { ToastContainer } from "@/components/layout/ToastContainer";
+
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,7 @@ export default async function RootLayout({
             <body suppressHydrationWarning={true}>
                 <NextIntlClientProvider locale={locale} messages={messages}>
                     {children}
+                    <ToastContainer />
                 </NextIntlClientProvider>
             </body>
         </html>
