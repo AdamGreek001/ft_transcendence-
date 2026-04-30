@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
+import { toast } from "@/lib/toast";
 
 const LoginPage = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -61,8 +62,7 @@ const LoginPage = () => {
         console.error("Token not found in response:", res.data);
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      alert(error.response?.data?.message || "Email or password incorrect!");
+      toast.error(error.response?.data?.message || "Email or password incorrect!")
     } finally {
       setLoading(false);
     }
