@@ -4,14 +4,14 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuthStore } from "@/store/auth";
+
 
 export default function OAuthCallbackPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const called = useRef(false);
   const { isAuthenticated, isHydrated } = useAuth();
-  const { setAuth, setHydrated } = useAuthStore();
+
 
   useEffect(() => {
     if (isHydrated && isAuthenticated) {
@@ -29,10 +29,10 @@ export default function OAuthCallbackPage() {
 
       try {
         Cookies.set("token", token, { expires: 7, path: "/" });
-        const parsedUser = JSON.parse(user);
+
         localStorage.setItem("user", user);
-        setAuth(token, parsedUser);
-        setHydrated();
+
+
         router.push("/feed");
       } catch (err) {
         console.error("Failed to store auth:", err);
