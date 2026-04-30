@@ -50,26 +50,12 @@ interface MessagesResponse {
     hasMore: boolean;
 }
 
-interface FollowingRelation {
-    followingId: string;
-    following: {
-        id: string;
-        username: string;
-        displayName: string | null;
-        avatarUrl: string | null;
-        isOnline?: boolean;
-    };
-}
-
-interface FollowerRelation {
-    followerId: string;
-    follower: {
-        id: string;
-        username: string;
-        displayName: string | null;
-        avatarUrl: string | null;
-        isOnline?: boolean;
-    };
+interface FriendUser {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    isOnline?: boolean;
 }
 
 export default function MessagesPage() {
@@ -86,7 +72,7 @@ export default function MessagesPage() {
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const [isInfoSidebarOpen, setIsInfoSidebarOpen] = useState(false);
     const [peopleSearch, setPeopleSearch] = useState("");
-    const [friendUsers, setFriendUsers] = useState<FollowingRelation[]>([]);
+    const [friendUsers, setFriendUsers] = useState<FriendUser[]>([]);
     const [isStartingChatUserId, setIsStartingChatUserId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -272,18 +258,18 @@ export default function MessagesPage() {
         const fetchFriends = async () => {
             try {
                 const [followingData, followersData] = await Promise.all([
-                    apiClient.get<FollowingRelation[]>(`/users/${user.id}/following`),
-                    apiClient.get<FollowerRelation[]>(`/users/${user.id}/followers`),
+                    apiClient.get<FriendUser[]>(`/users/${user.id}/following`),
+                    apiClient.get<FriendUser[]>(`/users/${user.id}/followers`),
                 ]);
 
                 const followerIds = new Set(
                     (followersData || [])
-                        .map((item) => item.follower?.id || item.followerId)
+                        .map((item) => item.id)
                         .filter((id): id is string => !!id),
                 );
 
                 const friends = (followingData || []).filter((item) => {
-                    const friendId = item.following?.id || item.followingId;
+                    const friendId = item.id;
                     return !!friendId && followerIds.has(friendId);
                 });
 
@@ -319,14 +305,14 @@ export default function MessagesPage() {
         .filter((item) => {
             const q = peopleSearch.trim();
             if (!q) return false;
-            const username = item.following?.username || "";
-            const displayName = item.following?.displayName || "";
+            const username = item.username || "";
+            const displayName = item.displayName || "";
             return matchesPattern(username, q) || matchesPattern(displayName, q);
         })
         .slice(0, 8);
 
-    const handleStartChatWithFollowing = async (item: FollowingRelation) => {
-        const targetId = item.following?.id;
+    const handleStartChatWithFollowing = async (item: FriendUser) => {
+        const targetId = item.id;
         if (!targetId) return;
 
         const existing = conversations.find((c) => c.otherUserId === targetId);
@@ -810,28 +796,28 @@ export default function MessagesPage() {
                                     ) : (
                                         followingSearchResults.map((item) => (
                                             <div
-                                                key={item.followingId}
+                                                key={item.id}
                                                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800/40 transition text-left"
                                             >
                                                 <Avatar
-                                                    src={item.following.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.following.username}`}
-                                                    alt={item.following.displayName || item.following.username}
+                                                    src={item.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.username}`}
+                                                    alt={item.displayName || item.username}
                                                     size={34}
                                                 />
                                                 <div className="flex-1 min-w-0">
                                                     <Link
-                                                        href={`/profile/${item.following.username}`}
+                                                        href={`/profile/${item.username}`}
                                                         onClick={(e) => e.stopPropagation()}
                                                         className="block text-sm text-white truncate hover:text-violet-300 transition"
                                                     >
-                                                        {item.following.displayName || item.following.username}
+                                                        {item.displayName || item.username}
                                                     </Link>
                                                     <Link
-                                                        href={`/profile/${item.following.username}`}
+                                                        href={`/profile/${item.username}`}
                                                         onClick={(e) => e.stopPropagation()}
                                                         className="block text-xs text-gray-500 truncate hover:text-gray-300 transition"
                                                     >
-                                                        @{item.following.username}
+                                                        @{item.username}
                                                     </Link>
                                                 </div>
                                                 <button
@@ -839,7 +825,7 @@ export default function MessagesPage() {
                                                     onClick={() => handleStartChatWithFollowing(item)}
                                                     className="text-xs text-violet-400 hover:text-violet-300 transition"
                                                 >
-                                                    {isStartingChatUserId === item.following.id ? "..." : "Chat"}
+                                                    {isStartingChatUserId === item.id ? "..." : "Chat"}
                                                 </button>
                                             </div>
                                         ))
