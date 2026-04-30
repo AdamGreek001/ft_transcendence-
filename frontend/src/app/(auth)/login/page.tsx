@@ -168,13 +168,13 @@ const LoginPage = () => {
         <div className="flex items-center justify-center gap-3 sm:gap-5 flex-wrap px-3">
           <a
             className="text-sm text-gray-400"
-            href="http://localhost:3000/privacy-policy"
+            href="http://localhost:8080/privacy-policy"
           >
             Privacy Policy
           </a>
           <a
             className="text-sm text-gray-400"
-            href="http://localhost:3000/terms-of-service"
+            href="http://localhost:8080/terms-of-service"
           >
             Terms of service
           </a>

@@ -177,14 +177,14 @@ const SignUpPage = () => {
                     I agree to the{" "}
                     <a
                       className="text-purple-900"
-                      href="http://localhost:3000/terms-of-service"
+                      href="http://localhost:8080/terms-of-service"
                     >
                       Terms of Service
                     </a>{" "}
                     and{" "}
                     <a
                       className="text-purple-900"
-                      href="http://localhost:3000/privacy-policy"
+                      href="http://localhost:8080/privacy-policy"
                     >
                       Privacy Policy
                     </a>
