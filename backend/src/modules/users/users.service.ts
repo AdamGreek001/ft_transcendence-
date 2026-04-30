@@ -135,49 +135,45 @@ export class UsersService {
   async findByUsername(username: string, currentUserId?: string) {
     const user = await this.userRepo.findOne({
       where: { username },
-      select: [
-        "id",
-        "username",
-        "displayName",
-        "bio",
-        "avatarUrl",
-        "createdAt",
-        "isOnline",
-        "lastSeenAt",
-      ],
+      select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt", "isOnline", "lastSeenAt"],
     });
-  
+
     if (!user) throw new NotFoundException("User not found");
-  
+
     const [postCount, followerCount, followingCount] = await Promise.all([
       this.userRepo.manager.count("posts", { where: { authorId: user.id } }),
       this.followRepo.count({ where: { followingId: user.id } }),
       this.followRepo.count({ where: { followerId: user.id } }),
     ]);
-  
+
     let isFollowing = false;
-  
+    let isFollowedBy = false; 
+
     if (currentUserId && currentUserId !== user.id) {
-      const follow = await this.followRepo.findOne({
-        where: {
-          followerId: currentUserId,
-          followingId: user.id,
-        },
-      });
-  
+      const [follow, followBack] = await Promise.all([
+        this.followRepo.findOne({
+          where: { followerId: currentUserId, followingId: user.id },
+        }),
+        this.followRepo.findOne({                          
+          where: { followerId: user.id, followingId: currentUserId },
+        }),
+      ]);
+
       isFollowing = !!follow;
+      isFollowedBy = !!followBack; 
     }
-  
+
     return {
       ...user,
       isFollowing,
+      isFollowedBy, 
       _count: {
         posts: postCount,
         followers: followerCount,
         following: followingCount,
       },
     };
-  }
+}
 
   async updateProfile(userId: string, updateUserDto: UpdateUserDto) {
     try {

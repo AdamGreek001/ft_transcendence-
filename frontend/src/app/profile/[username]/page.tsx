@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -123,12 +122,17 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             setIsLoading(true);
             setError(null);
             try {
-                const data = await apiClient.get<UserProfileResponse & { isFollowing?: boolean }>(
+                const data = await apiClient.get<UserProfileResponse & { 
+                    isFollowing?: boolean;
+                    isFollowedBy?: boolean; // ← add this
+                }>(
                     `/users/${resolved.username}?currentUserId=${currentUser?.id ?? ""}`
                 );
                 if (cancelled) return;
                 setProfile(data);
-                setIsFollowing(data.isFollowing ?? false); // ← initialize from backend
+                setIsFollowing(data.isFollowing ?? false);
+                setProfileFollowsCurrent(data.isFollowedBy ?? false); // ← add this
+                setIsFriend((data.isFollowing ?? false) && (data.isFollowedBy ?? false)); // ← add this
             } catch (err: any) {
                 if (cancelled) return;
                 const status = err?.response?.status;
@@ -140,7 +144,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         };
         load();
         return () => { cancelled = true; };
-    }, [params, currentUser?.id]); 
+    }, [params, currentUser?.id]);
 
     // load posts when profile is ready or tab changes
     useEffect(() => {
