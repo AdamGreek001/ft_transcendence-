@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient as api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { toast } from "@/lib/toast";
 
 interface UserData {
   id: string;
@@ -63,11 +64,9 @@ export default function SettingsPage() {
         setAuth(accessToken, updatedUser);
         localStorage.setItem("user", JSON.stringify(updatedUser));
       }
-
-      alert("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
     } catch (err: any) {
-      console.error("Save Error:", err.response?.data);
-      alert(
+      toast.error(
         err.response?.data?.message || "Something went wrong while saving.",
       );
     }
@@ -92,10 +91,10 @@ export default function SettingsPage() {
       );
 
       setAvatarUrl(res.avatarUrl);
-      alert("Avatar updated!");
+      toast.success("Avatar updated!");
     } catch (err: any) {
       console.error("Upload error:", err);
-      alert("Error: " + (err.response?.data?.message || "Failed to upload"));
+      toast.error("Error: " + (err.response?.data?.message || "Failed to upload"));
     }
   };
 
@@ -103,9 +102,9 @@ export default function SettingsPage() {
     try {
       await api.delete("/users/avatar/remove");
       setAvatarUrl("");
-      alert("Avatar removed");
+      toast.success("Avatar removed");
     } catch (err) {
-      alert("Error removing avatar");
+      toast.error("Error removing avatar");
     }
   };
 
@@ -116,10 +115,10 @@ export default function SettingsPage() {
       try {
         await api.post("/users/2fa/turn-off");
         setTwoFactorEnabled(false);
-        alert("2FA Disabled successfully.");
+        toast.success("2FA Disabled successfully.");
       } catch (err: any) {
         console.error("Disable 2FA Error:", err);
-        alert("Error disabling 2FA");
+        toast.error("Error disabling 2FA");
       }
     } else {
       try {
@@ -130,14 +129,14 @@ export default function SettingsPage() {
         setIs2FAModalOpen(true);
       } catch (err: any) {
         console.error("Generate 2FA Error:", err);
-        alert("Error generating QR code");
+        toast.error("Error generating QR code");
       }
     }
   };
 
   const handleVerify2FA = async () => {
     if (twoFactorCode.length !== 6) {
-      alert("Please enter a valid 6-digit code.");
+      toast.warning("Please enter a valid 6-digit code.");
       return;
     }
 
@@ -146,10 +145,10 @@ export default function SettingsPage() {
       setTwoFactorEnabled(true);
       setIs2FAModalOpen(false);
       setTwoFactorCode("");
-      alert("2FA Successfully Enabled!");
+      toast.success("2FA Successfully Enabled!");
     } catch (err: any) {
       console.error("Verify 2FA Error:", err);
-      alert("Invalid code. Please try again.");
+      toast.error("Invalid code. Please try again.");
     }
   };
 

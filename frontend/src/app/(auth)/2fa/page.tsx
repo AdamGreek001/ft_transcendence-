@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api';
 import Cookies from 'js-cookie';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/auth';
+import { toast } from "@/lib/toast";
 
 export default function TwoFactorVerify() {
   const searchParams = useSearchParams();
@@ -44,7 +45,7 @@ export default function TwoFactorVerify() {
         router.push("/feed");
       }
     } catch (error: any) {
-      alert("Code incorrect!");
+      toast.error("Code incorrect!");
     }
   };
 

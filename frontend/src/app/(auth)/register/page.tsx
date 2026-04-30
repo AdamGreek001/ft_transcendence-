@@ -18,6 +18,7 @@ import { api } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/lib/toast";
 
 const SignUpPage = () => {
   const router = useRouter();
@@ -44,7 +45,7 @@ const SignUpPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!check) {
-      alert("you must agree to the Terms of service!");
+      toast.info("you must agree to the Terms of service!");
       return;
     }
 
@@ -52,7 +53,7 @@ const SignUpPage = () => {
     try {
       const res = await api.post("/auth/register", formData);
       if (res.status === 201) {
-        alert("Account created successfully!");
+        toast.success("Account created successfully!");
         router.push("/login");
       }
     } catch (error: any) {
@@ -61,8 +62,7 @@ const SignUpPage = () => {
         error.response?.data?.message ||
         error.message ||
         "Something went wrong";
-      console.error("Signup error:", errorMessage);
-      alert(errorMessage);
+        toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
