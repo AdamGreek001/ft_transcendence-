@@ -1,27 +1,44 @@
 groups:
-  - name: ft_transcendence_alerts
+  - name: ft_transcendence_infrastructure
     rules:
-      # ─── Backend down ──────────────────────────────────────
-      - alert: BackendDown
-        expr: up{job="backend"} == 0
+      # ─── Container alerts ─────────────────────────────────────
+      - alert: ContainerDown
+        expr: up == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Backend service is down"
-          description: "The NestJS backend has been unreachable for more than 1 minute."
+          summary: "Service {{ $labels.job }} is down"
+          description: "The {{ $labels.job }} target has been unreachable for more than 1 minute."
 
-      # ─── High error rate ───────────────────────────────────
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
-        for: 2m
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name=~"ft_.*"}[5m]) * 100 > 80
+        for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "High 5xx error rate detected"
-          description: "More than 10% of requests are returning 5xx errors."
+          summary: "Container {{ $labels.name }} high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is above 80% for more than 3 minutes."
 
-      # ─── nginx down ────────────────────────────────────────
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name=~"ft_.*"} / container_spec_memory_limit_bytes{name=~"ft_.*"} * 100 > 85
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} high memory usage"
+          description: "Container {{ $labels.name }} memory usage is above 85% of its limit."
+
+      - alert: ContainerRestarting
+        expr: increase(container_restart_count{name=~"ft_.*"}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} is restarting frequently"
+          description: "Container {{ $labels.name }} has restarted more than 3 times in the last 15 minutes."
+
+      # ─── Nginx alerts ─────────────────────────────────────────
       - alert: NginxDown
         expr: up{job="nginx"} == 0
         for: 1m
@@ -31,12 +48,39 @@ groups:
           summary: "Nginx reverse proxy is down"
           description: "Nginx has been unreachable for more than 1 minute."
 
-      # ─── High request latency ──────────────────────────────
-      - alert: HighRequestLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
-        for: 5m
+      - alert: NginxHighConnectionCount
+        expr: nginx_connections_active > 500
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High request latency"
-          description: "95th percentile request latency is above 2 seconds."
+          summary: "Nginx has a high number of active connections"
+          description: "Nginx currently has {{ $value }} active connections."
+
+      # ─── PostgreSQL alerts ────────────────────────────────────
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL exporter has been unreachable for more than 1 minute."
+
+      - alert: PostgresTooManyConnections
+        expr: pg_stat_activity_count > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL has too many connections"
+          description: "PostgreSQL currently has {{ $value }} active connections (threshold: 80)."
+
+      - alert: PostgresDeadLocks
+        expr: increase(pg_stat_database_deadlocks_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL deadlocks detected"
+          description: "Database {{ $labels.datname }} has experienced deadlocks in the last 5 minutes."

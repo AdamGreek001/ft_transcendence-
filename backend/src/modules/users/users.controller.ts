@@ -117,12 +117,12 @@ export class UsersController {
   }
 
   @Get(":username")
-  @SkipThrottle()
-  @ApiOperation({ summary: "Get user profile by username" })
-  async getProfile(@Param("username") username: string) {
-    return this.usersService.findByUsername(username);
-  }
-
+async getProfile(
+  @Param("username") username: string,
+  @Query("currentUserId") currentUserId?: string,
+) {
+  return this.usersService.findByUsername(username, currentUserId);
+}
   @Patch("settings/update")
   @UseGuards(JwtAuthGuard)
   async update(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
@@ -233,14 +233,20 @@ export class UsersController {
   @Get(":id/followers")
   @SkipThrottle()
   @ApiOperation({ summary: "Get user followers" })
-  async getFollowers(@Param("id") id: string) {
-    return this.usersService.getFollowers(id);
+  async getFollowers(
+    @Param("id") id: string,
+    @Query("currentUserId") currentUserId?: string,
+  ) {
+    return this.usersService.getFollowers(id, currentUserId);
   }
-
+  
   @Get(":id/following")
   @SkipThrottle()
   @ApiOperation({ summary: "Get users this user follows" })
-  async getFollowing(@Param("id") id: string) {
-    return this.usersService.getFollowing(id);
+  async getFollowing(
+    @Param("id") id: string,
+    @Query("currentUserId") currentUserId?: string,
+  ) {
+    return this.usersService.getFollowing(id, currentUserId);
   }
 }

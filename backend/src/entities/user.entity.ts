@@ -30,10 +30,10 @@ export class User {
     @Column({ type: "varchar", nullable: true, name: "password_hash" })
     passwordHash!: string | null;
 
-    @Column({ type: "varchar", length: 50, nullable: true, name: "displayName" })
+    @Column({ type: "varchar", length: 35, nullable: true, name: "displayName" })
     displayName!: string | null;
 
-    @Column({ type: "varchar", length: 500, nullable: true })
+    @Column({ type: "varchar", length: 160, nullable: true })
     bio!: string | null;
 
     @Column({ type: "varchar", nullable: true, name: "avatarUrl" })

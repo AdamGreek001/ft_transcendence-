@@ -10,6 +10,8 @@ import { User } from "../../entities/user.entity";
 import { Follow } from "../../entities/follow.entity";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { NotificationsService } from "../notifications/notifications.service";
+import { In } from "typeorm";
+
 
 @Injectable()
 export class UsersService {
@@ -130,20 +132,12 @@ export class UsersService {
     return this.userRepo.findOne({ where: { id } });
   }
 
-  async findByUsername(username: string) {
+  async findByUsername(username: string, currentUserId?: string) {
     const user = await this.userRepo.findOne({
       where: { username },
-      select: [
-        "id",
-        "username",
-        "displayName",
-        "bio",
-        "avatarUrl",
-        "createdAt",
-        "isOnline",
-        "lastSeenAt",
-      ],
+      select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt", "isOnline", "lastSeenAt"],
     });
+
     if (!user) throw new NotFoundException("User not found");
 
     const [postCount, followerCount, followingCount] = await Promise.all([
@@ -152,15 +146,34 @@ export class UsersService {
       this.followRepo.count({ where: { followerId: user.id } }),
     ]);
 
+    let isFollowing = false;
+    let isFollowedBy = false; 
+
+    if (currentUserId && currentUserId !== user.id) {
+      const [follow, followBack] = await Promise.all([
+        this.followRepo.findOne({
+          where: { followerId: currentUserId, followingId: user.id },
+        }),
+        this.followRepo.findOne({                          
+          where: { followerId: user.id, followingId: currentUserId },
+        }),
+      ]);
+
+      isFollowing = !!follow;
+      isFollowedBy = !!followBack; 
+    }
+
     return {
       ...user,
+      isFollowing,
+      isFollowedBy, 
       _count: {
         posts: postCount,
         followers: followerCount,
         following: followingCount,
       },
     };
-  }
+}
 
   async updateProfile(userId: string, updateUserDto: UpdateUserDto) {
     try {
@@ -201,18 +214,58 @@ export class UsersService {
     });
   }
 
-  async getFollowers(userId: string) {
-    return this.followRepo.find({
+    async getFollowers(userId: string, currentUserId?: string) {
+    const rows = await this.followRepo.find({
       where: { followingId: userId },
       relations: ["follower"],
     });
+
+    let followedByMe = new Set<string>();
+    if (currentUserId && currentUserId !== "") {
+      const mine = await this.followRepo.find({
+        where: {
+          followerId: currentUserId,
+          followingId: In(rows.map((r) => r.follower.id)),
+        },
+        select: ["followingId"],
+      });
+      followedByMe = new Set(mine.map((f) => f.followingId));
+    }
+
+    return rows.map((r) => ({
+      id: r.follower.id,
+      username: r.follower.username,
+      displayName: r.follower.displayName ?? null,
+      avatarUrl: r.follower.avatarUrl ?? null,
+      isFollowing: followedByMe.has(r.follower.id),
+    }));
   }
 
-  async getFollowing(userId: string) {
-    return this.followRepo.find({
+  async getFollowing(userId: string, currentUserId?: string) {
+    const rows = await this.followRepo.find({
       where: { followerId: userId },
       relations: ["following"],
     });
+
+    let followedByMe = new Set<string>();
+    if (currentUserId && currentUserId !== "") {
+      const mine = await this.followRepo.find({
+        where: {
+          followerId: currentUserId,
+          followingId: In(rows.map((r) => r.following.id)),
+        },
+        select: ["followingId"],
+      });
+      followedByMe = new Set(mine.map((f) => f.followingId));
+    }
+
+    return rows.map((r) => ({
+      id: r.following.id,
+      username: r.following.username,
+      displayName: r.following.displayName ?? null,
+      avatarUrl: r.following.avatarUrl ?? null,
+      isFollowing: followedByMe.has(r.following.id),
+    }));
   }
 
   async getSuggestions(currentUserId: string, limit = 5) {

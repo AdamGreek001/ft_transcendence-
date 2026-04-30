@@ -1,0 +1,229 @@
+{
+    "annotations": { "list": [] },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 2,
+    "id": null,
+    "links": [
+        { "title": "← Overview", "url": "/grafana/d/ft-transcendence-overview", "type": "link", "icon": "arrow-left", "targetBlank": false }
+    ],
+    "panels": [
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+            "id": 100,
+            "title": "🐘 DATABASE STATUS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "thresholds" },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "value": null, "color": "#F2495C" },
+                            { "value": 1, "color": "#73BF69" }
+                        ]
+                    },
+                    "mappings": [
+                        { "options": { "0": { "text": "OFFLINE", "color": "#F2495C", "index": 0 }, "1": { "text": "ONLINE", "color": "#73BF69", "index": 1 } }, "type": "value" }
+                    ]
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+            "id": 1,
+            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "PostgreSQL Status",
+            "type": "stat",
+            "targets": [ { "expr": "up{job=\"postgres\"}", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#8AB8FF" },
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "value": null, "color": "#73BF69" },
+                            { "value": 50, "color": "#FF9830" },
+                            { "value": 80, "color": "#F2495C" }
+                        ]
+                    }
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+            "id": 2,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [ { "expr": "sum(pg_stat_activity_count{datname=~\".+\"})", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#B877D9" },
+                    "unit": "bytes"
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+            "id": 3,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Database Size",
+            "type": "stat",
+            "targets": [ { "expr": "pg_database_size_bytes{datname=\"transcendence\"}", "legendFormat": "" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "fixed", "fixedColor": "#73BF69" },
+                    "unit": "percentunit",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            { "value": null, "color": "#F2495C" },
+                            { "value": 0.8, "color": "#FF9830" },
+                            { "value": 0.95, "color": "#73BF69" }
+                        ]
+                    }
+                }
+            },
+            "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+            "id": 4,
+            "options": { "colorMode": "background_solid", "graphMode": "area", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
+            "title": "Cache Hit Ratio",
+            "type": "stat",
+            "targets": [ { "expr": "pg_stat_database_blks_hit{datname=\"transcendence\"} / (pg_stat_database_blks_hit{datname=\"transcendence\"} + pg_stat_database_blks_read{datname=\"transcendence\"})", "legendFormat": "" } ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+            "id": 101,
+            "title": "📈 CONNECTIONS & TRANSACTIONS",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "short",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 20,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+            "id": 5,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }, "tooltip": { "mode": "multi" } },
+            "title": "Active Connections Over Time",
+            "type": "timeseries",
+            "targets": [ { "expr": "pg_stat_activity_count{datname=~\".+\"}", "legendFormat": "{{ datname }} ({{ state }})" } ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "ops",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 20,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+            "id": 6,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }, "tooltip": { "mode": "multi" } },
+            "title": "Transactions per Second",
+            "type": "timeseries",
+            "targets": [
+                { "expr": "rate(pg_stat_database_xact_commit{datname=\"transcendence\"}[5m])", "legendFormat": "commits/s" },
+                { "expr": "rate(pg_stat_database_xact_rollback{datname=\"transcendence\"}[5m])", "legendFormat": "rollbacks/s" }
+            ]
+        },
+        {
+            "collapsed": false,
+            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+            "id": 102,
+            "title": "📝 ROW OPERATIONS & HEALTH",
+            "type": "row"
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "palette-classic" },
+                    "unit": "ops",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 15,
+                        "gradientMode": "opacity",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth",
+                        "stacking": { "mode": "normal" }
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 0, "y": 16 },
+            "id": 7,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
+            "title": "Row Operations (Stacked)",
+            "type": "timeseries",
+            "targets": [
+                { "expr": "rate(pg_stat_database_tup_inserted{datname=\"transcendence\"}[5m])", "legendFormat": "inserts/s" },
+                { "expr": "rate(pg_stat_database_tup_updated{datname=\"transcendence\"}[5m])", "legendFormat": "updates/s" },
+                { "expr": "rate(pg_stat_database_tup_deleted{datname=\"transcendence\"}[5m])", "legendFormat": "deletes/s" },
+                { "expr": "rate(pg_stat_database_tup_fetched{datname=\"transcendence\"}[5m])", "legendFormat": "fetches/s" }
+            ]
+        },
+        {
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "fieldConfig": {
+                "defaults": {
+                    "color": { "mode": "continuous-RdYlGr" },
+                    "unit": "short",
+                    "custom": {
+                        "lineWidth": 2,
+                        "fillOpacity": 15,
+                        "gradientMode": "scheme",
+                        "showPoints": "never",
+                        "spanNulls": true,
+                        "lineInterpolation": "smooth"
+                    }
+                }
+            },
+            "gridPos": { "h": 9, "w": 12, "x": 12, "y": 16 },
+            "id": 8,
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
+            "title": "Deadlocks & Conflicts",
+            "type": "timeseries",
+            "targets": [
+                { "expr": "rate(pg_stat_database_deadlocks{datname=\"transcendence\"}[5m])", "legendFormat": "deadlocks/s" },
+                { "expr": "rate(pg_stat_database_conflicts{datname=\"transcendence\"}[5m])", "legendFormat": "conflicts/s" }
+            ]
+        }
+    ],
+    "schemaVersion": 39,
+    "tags": ["ft_transcendence", "postgresql"],
+    "templating": { "list": [] },
+    "time": { "from": "now-1h", "to": "now" },
+    "title": "PostgreSQL",
+    "uid": "ft-postgresql",
+    "description": "PostgreSQL database health and performance monitoring"
+}

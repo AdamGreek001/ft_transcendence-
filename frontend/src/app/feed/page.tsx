@@ -1,14 +1,29 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { api, apiClient } from "@/lib/api";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { Avatar } from "@/components/ui";
+import { toast } from "@/lib/toast";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+
 
 // ============================================================
 // TYPES — ready for real API data later
 // ============================================================
+
+interface UserSuggestion {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    isFollowing: boolean;
+}
 
 interface User {
   username: string;
@@ -29,6 +44,7 @@ interface Comment {
 
 interface Post {
   id: string;
+  feedItemId?: string;
   content: string;
   imageUrl: string | null;
   createdAt: string;
@@ -44,6 +60,7 @@ interface Post {
   };
   isLikedByMe?: boolean;
   isSharedByMe?: boolean;
+  isSavedByMe?: boolean;
   sharedBy?: {
     username: string;
     avatarUrl: string | null;
@@ -57,7 +74,7 @@ interface Post {
 // AVATAR URL NORMALIZER (same as AppSidebar)
 // ============================================================
 
-function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
+export function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
   if (!avatarUrl) {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || "user"}`;
   }
@@ -115,15 +132,24 @@ function getRelativeTime(date: Date): string {
   return date.toLocaleDateString("en-US", { day: "numeric", month: "long" });
 }
 
+let globalTick = 0;
+let listeners: (() => void)[] = [];
+
+setInterval(() => {
+  globalTick++;
+  listeners.forEach((fn) => fn());
+}, 60000);
+
 function useRelativeTime(date: Date): string {
-  const [, setTick] = useState(0);
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 30000); // update every 30 seconds
+    const update = () => forceUpdate((t) => t + 1);
+    listeners.push(update);
 
-    return () => clearInterval(interval);
+    return () => {
+      listeners = listeners.filter((l) => l !== update);
+    };
   }, []);
 
   return getRelativeTime(date);
@@ -187,39 +213,64 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
     </div>
   );
 }
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImage(file);
-    setImagePreview(URL.createObjectURL(file));
+function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+
+  if (!allowedTypes.includes(file.type)) {
+    toast.error("Only PNG, JPG, JPEG, WEBP images are allowed");
+    return;
   }
+
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("Image is too large (max 5MB)");
+    return;
+  }
+
+  setImage(file);
+  setImagePreview(URL.createObjectURL(file));
+}
 
   function handleRemoveImage() {
     setImage(null);
     setImagePreview(null);
   }
 
-  function handlePost() {
-  if (!canPost) return;
-    console.log("Posting:", text, image);
-  onSubmit(text, image ?? undefined);
-  setText("");
-  setImage(null);
-  setImagePreview(null);
-  if (fileInputRef.current) fileInputRef.current.value = ""; // reset input
-}
+  async function handlePost() {
+    if (!canPost) return;
+  
+    try {
+      console.log("Posting:", text, image);
+  
+      await onSubmit(text, image ?? undefined);
+      toast.success("Your post was sent");
+  
+      setText("");
+      setImage(null);
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        toast.error("Slow down! Too many requests");
+      }
+      else {
+      console.error("Create post error:", error);
+      toast.error("Failed to create post. Please try again.");
+      }
+    }
+  }
 
   return (
     <section className="bg-[#1a1a1a] rounded-2xl border border-slate-800 shadow-lg p-4 flex flex-col gap-4">
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
-          <Image 
+          <Avatar
             src={avatarUrl}
-            alt="Your profile picture" 
-            width={40} 
-            height={40} 
-            className="rounded-full object-cover"
-          />  
+            alt="Your profile picture"
+            size={40}
+          />
         </div>
         <textarea
           className="w-full bg-transparent text-slate-100 resize-none py-2 text-sm custom-scrollbar outline-none overflow-y-auto max-h-32"
@@ -288,31 +339,34 @@ function CommentItem({ comment, onReply, isReply = false , currentUser}: {
   currentUser: any;
 }) {
   const relativeTime = useRelativeTime(new Date(comment.createdAt));
+  const router = useRouter();
 
-  return (
+return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-3">
-        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
-          <Image
-            src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
-            alt={comment.author.username}
-            width={32}
-            height={32}
-            className="rounded-full object-cover"
-          />
-        </div>
-        <div className="flex flex-col gap-1 flex-1">
+        <ProfileHoverCard author={comment.author} currentUser={currentUser}>
           <div 
-            className="px-3 py-2 rounded-2xl rounded-tl-none"
-            style={{ backgroundColor: "#242424" }}
-          >
-            <span className="font-bold text-xs text-white block mb-0.5"
-              style={{ color: currentUser?.username === comment.author.username ? "#895af6" : "#fff" }}>
-              {comment.author.username}
-            </span>
-            <p className="text-sm text-slate-400 break-all">
-              {comment.content}
-            </p>
+              className="w-8 h-8 rounded-full overflow-hidden shrink-0 cursor-pointer"
+              onClick={() => router.push(`/profile/${comment.author.username}`)}>
+            <Avatar
+              src={normalizeAvatarUrl(comment.author.avatarUrl, comment.author.username)}
+              alt={comment.author.username}
+              size={32}
+              onClick={() => router.push(`/profile/${comment.author.username}`)}
+            />
+          </div>
+        </ProfileHoverCard>
+        <div className="flex flex-col gap-1 flex-1">
+          <div className="px-3 py-2 rounded-2xl rounded-tl-none" style={{ backgroundColor: "#242424" }}>
+            <ProfileHoverCard author={comment.author} currentUser={currentUser}>
+              <span
+                className="font-bold text-xs text-white block mb-0.5 cursor-pointer hover:underline"
+                onClick={() => router.push(`/profile/${comment.author.username}`)}
+              >
+                {comment.author.username}
+              </span>
+            </ProfileHoverCard>
+            <p className="text-sm text-slate-400">{comment.content}</p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
             {!isReply && (
@@ -328,23 +382,17 @@ function CommentItem({ comment, onReply, isReply = false , currentUser}: {
         </div>
       </div>
 
-      {/* Replies — indented, no reply button */}
       {comment.replies && comment.replies.length > 0 && (
         <div className="ml-11 flex flex-col gap-3 border-l-2 border-slate-800 pl-3">
           {comment.replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              onReply={onReply}
-              isReply={true}
-              currentUser={currentUser}
-            />
+            <CommentItem key={reply.id} comment={reply} onReply={onReply} isReply={true} currentUser={currentUser} />
           ))}
         </div>
       )}
     </div>
   );
 }
+
 
 // ============================================================
 // COMMENT SECTION
@@ -359,6 +407,7 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   const MAX_COMMENT_LENGTH = 500;
   const isCommentTooLong = commentText.length > MAX_COMMENT_LENGTH;
   const canComment = commentText.trim().length > 0 && !isCommentTooLong;
+  const router = useRouter();
 
   
   useEffect(() => {
@@ -430,9 +479,10 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   }
 }
 
-
+  const [loadingComments, setLoadingComments] = useState(false);
   async function handleSend() {
-  if (!canComment) return;
+  if (!canComment || loadingComments) return;
+  setLoadingComments(true);
   try {
     const text = replyingTo
       ? commentText.replace(`@${replyingTo.name} `, "").trim()
@@ -453,14 +503,25 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
             : c
         )
       );
+      toast.success(`Reply sent to @${replyingTo.name}`);
     } else {
       setCommentsList((prev) => [created, ...prev]);
+      toast.success("Comment posted successfully");
     }
 
     setCommentText("");
     setReplyingTo(null);
-  } catch (err) {
-    console.error("Comment error:", err);
+  } catch (err : any) {
+    if (err.response?.status === 429) {
+      toast.error("You're commenting too fast! Please slow down.");
+      return;
+    }
+    else {
+    toast.error("Failed to send comment. Please try again.");
+    }
+  }
+  finally {
+    setLoadingComments(false);
   }
 }
 
@@ -484,12 +545,11 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
       {/* Input — at bottom */}
       <div className="flex gap-3 items-end border-t border-slate-800 pt-4">
         <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 mb-1">
-          <Image
+          <Avatar
             src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
             alt="you"
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
+            size={36}
+            onClick={() => router.push(`/profile/${currentUser?.username}`)}
           />
         </div>
         <div className="flex-1">
@@ -539,26 +599,223 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
   );
 }
 
+
+function ProfileHoverCard({ author, currentUser, children }: {
+  author: { id: string; username: string; avatarUrl: string | null };
+  currentUser: any;
+  children: React.ReactNode;
+}) {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [profile, setProfile] = useState<any>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [hoverFollowing, setHoverFollowing] = useState(false);
+  const [flipped, setFlipped] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const isOwnProfile = currentUser?.id === author.id;
+
+  function updatePos() {
+  if (!triggerRef.current) return;
+  const rect = triggerRef.current.getBoundingClientRect();
+  const cardHeight = 280;
+  const isBottomHalf = rect.top > window.innerHeight / 2;
+  setFlipped(isBottomHalf);
+
+  setPos({
+    top: isBottomHalf
+      ? rect.top + window.scrollY - cardHeight - 8
+      : rect.bottom + window.scrollY + 8,
+    left: Math.min(
+      Math.max(rect.left + window.scrollX, 8),
+      window.innerWidth - 300 - 8
+    ),
+  });
+}
+
+  async function handleMouseEnter() {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    updatePos();
+    setShow(true);
+    if (!profile) {
+      try {
+        const data = await apiClient.get<any>(
+          `/users/${author.username}?currentUserId=${currentUser?.id}`
+        );
+        
+        setProfile(data);
+        setIsFollowing(data.isFollowing);
+      } catch (err : any) {
+        if (err.response?.status === 429) {
+          toast.error("Too many requests. Please slow down.");
+        } else {
+          toast.error("Failed to load profile.");
+        }
+      }
+    }
+  }
+
+  function handleMouseLeave() {
+    timeoutRef.current = setTimeout(() => setShow(false), 200);
+  }
+
+  async function handleFollow() {
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await apiClient.delete(`/users/${author.id}/follow`);
+        setIsFollowing(false);
+        toast.success(`Unfollowed @${author.username}`);
+      } else {
+        await apiClient.post(`/users/${author.id}/follow`);
+        setIsFollowing(true);
+        toast.success(`following @${author.username}`);
+      }
+    } catch (err : any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please slow down.");
+      } else {
+        toast.error("Action failed. Please try again.");
+      }
+    } finally {
+      setFollowLoading(false);
+      setHoverFollowing(false);
+    }
+  }
+
+  const card = show ? (
+    <div
+      className="fixed w-72 rounded-2xl border border-slate-700 shadow-2xl p-4 flex flex-col gap-3"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        backgroundColor: "#1a1a1a",
+        zIndex: 99999,
+        transformOrigin: flipped ? "bottom left" : "top left",
+        animation: "fadeIn 0.15s ease",
+      }}
+      onMouseEnter={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between">
+        <Avatar
+          src={normalizeAvatarUrl(author.avatarUrl, author.username)}
+          alt={author.username}
+          size={52}
+          onClick={() => router.push(`/profile/${author.username}`)}
+        />
+        {!isOwnProfile && currentUser && (
+          <button
+            onClick={handleFollow}
+            disabled={followLoading}
+            onMouseEnter={() => isFollowing && setHoverFollowing(true)}
+            onMouseLeave={() => setHoverFollowing(false)}
+            className="px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200"
+            style={{
+              backgroundColor: isFollowing
+                ? hoverFollowing ? "#7f1d1d" : "#1e293b"
+                : "#895af6",
+              color: isFollowing
+                ? hoverFollowing ? "#fca5a5" : "#e2e8f0"
+                : "#ffffff",
+              border: isFollowing ? "1px solid #334155" : "none",
+            }}
+          >
+            {followLoading ? "..." : isFollowing
+              ? (hoverFollowing ? "Unfollow" : "Following")
+              : "Follow"}
+          </button>
+        )}
+      </div>
+
+      {/* Name + username */}
+      <div
+        className="flex flex-col gap-0.5 cursor-pointer break-all"
+        onClick={() => router.push(`/profile/${author.username}`)}
+      >
+        <span className="font-bold text-sm text-white hover:underline">
+          {profile?.displayName || author.username}
+        </span>
+        <span className="text-xs text-slate-500 break-all">@{author.username}</span>
+      </div>
+
+      {/* Bio */}
+      {profile?.bio && (
+        <p className="text-xs text-slate-300 leading-relaxed break-all">{profile.bio}</p>
+      )}
+
+      {/* Stats */}
+      {profile && (
+        <div className="flex gap-4 text-xs border-t border-slate-800 pt-3">
+          <div className="flex gap-1">
+            <span className="font-bold text-white">{profile._count?.following ?? 0}</span>
+            <span className="text-slate-500">Following</span>
+          </div>
+          <div className="flex gap-1">
+            <span className="font-bold text-white">{profile._count?.followers ?? 0}</span>
+            <span className="text-slate-500">Followers</span>
+          </div>
+        </div>
+      )}
+
+      {/* View profile button */}
+      <button
+        onClick={() => router.push(`/profile/${author.username}`)}
+        className="w-full py-2 rounded-full text-xs font-bold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors mt-1"
+      >
+        View profile
+      </button>
+
+      {!profile && (
+        <div className="text-xs text-slate-500 text-center py-2">Loading...</div>
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <div
+      ref={triggerRef}
+      className="inline-block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+      {typeof window !== "undefined" && createPortal(card, document.body)}
+    </div>
+  );
+}
+
 // ============================================================
 // POST CARD
 // ============================================================
 
-function PostCard({ id, content, imageUrl, createdAt, author, _count,
-  isLikedByMe, isSharedByMe, sharedBy, currentUser }: Post & {
+export function PostCard({ id, content, imageUrl, createdAt, author, _count,
+  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser }: Post & {
   currentUser: any;
 }) {
   const [liked, setLiked] = useState(isLikedByMe ?? false);
   const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(isSavedByMe ?? false);
   const [showComments, setShowComments] = useState(false);
   const [shared, setShared] = useState(isSharedByMe ?? false);
   const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
+  const isOwnPost = currentUser?.id === author.id;
   const [hidden, setHidden] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  const router = useRouter();
+
 
   const relativeTime = useRelativeTime(new Date(createdAt));
+  const [loading, setLoading] = useState(false);
 
   async function handleLike() {
-  // optimistic update — change UI immediately
+    if (loading) return;
+    setLoading(true);
   setLiked(!liked);
   setLikeCount(liked ? likeCount - 1 : likeCount + 1);
 
@@ -568,70 +825,215 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
     // revert if API fails
     setLiked(liked);
     setLikeCount(likeCount);
-    console.error("Like error:", err);
+    toast.error("Failed to update like");
+  }
+  finally {
+    setLoading(false);
+  }
+}
+  useEffect(() => {
+  async function checkFollow() {
+    if (!currentUser || isOwnPost) return;
+
+    try {
+      const following = await apiClient.get<any[]>(
+        `/users/${currentUser.id}/following`
+      );
+
+      setIsFollowing(
+        following.some(
+          (f: any) =>
+            f.followingId === author.id || f.following?.id === author.id
+        )
+      );
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please wait a moment.");
+      } else {
+        console.error("Follow check failed:", err);
+      }
+    }
+  }
+
+  checkFollow();
+}, [currentUser, author.id]);
+
+  async function handleSave() {
+  const wasSaved = saved;
+  
+  setSaved(!wasSaved);
+  try {
+    await api.posts.save(id);
+    toast.info(!wasSaved ? "Post saved" : "Post unsaved");
+  } catch (err : any) {
+    setSaved(wasSaved);
+    if (err.response?.status === 429) {
+      toast.error("You're saving too fast. Please slow down.");
+    } else {
+      toast.error("Failed to update saved posts. Try again.");
+    }
   }
 }
 
-  function handleSave() {
-    setSaved(!saved);
-    // TODO: api.posts.save(id)
-  }
-
-  async function handleShare() {
-  // optimistic update
+async function handleShare() {
   const wasShared = shared;
   setShared(!wasShared);
   setShareCount(wasShared ? shareCount - 1 : shareCount + 1);
 
   try {
     await api.posts.share(id);
-  } catch (err) {
-    // revert on fail
+    toast.success(!wasShared ? "Post shared" : "Share removed");
+  } catch (err: any) {
     setShared(wasShared);
     setShareCount(shareCount);
-    console.error("Share error:", err);
+
+    if (err.response?.status === 429) {
+      toast.error("You're sharing too fast. Please slow down.");
+    } else {
+      toast.error("Failed to update share. Try again.");
+    }
   }
 }
 
-  if (hidden) return null;
+async function handleDelete() {
+    try {
+        await api.posts.delete(id);
+        setHidden(true);
+        toast.info("Post deleted");
+    } catch (err : any) {
+        if (err.response?.status === 429) {
+            toast.error("You're doing that too fast. Please slow down.");
+        } else {
+            toast.error("Failed to delete post. Please try again.");
+        }
+    }
+}
 
+async function handleHide() {
+  const wasHidden = hidden;
+
+  setHidden(true);
+
+  try {
+    await api.posts.hide(id);
+    toast.info("Post hidden");
+  } catch (err: any) {
+    console.error("Hide error:", err);
+
+    setHidden(wasHidden);
+
+    if (err.response?.status === 429) {
+      toast.error("You're doing that too fast. Please slow down.");
+    } else {
+      toast.error("Failed to hide post. Try again.");
+    }
+  }
+}
+
+async function handleUnhide() {
+  const wasHidden = hidden;
+
+  setHidden(false);
+
+  try {
+    await api.posts.unhide(id);
+    toast.info("Post restored");
+  } catch (err: any) {
+    console.error("Unhide error:", err);
+
+    setHidden(wasHidden);
+
+    if (err.response?.status === 429) {
+      toast.error("You're doing that too fast. Please slow down.");
+    } else {
+      toast.error("Failed to restore post. Try again.");
+    }
+  }
+}
+    if (hidden && isOwnPost) return null;
+    if (hidden) return (
+        <div className="bg-[#1a1a1a] rounded-2xl border border-slate-800 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <img src="/icons/close.svg" alt="hidden" className="w-4 h-4 opacity-40" />
+                <span className="text-sm text-slate-500">Post hidden</span>
+            </div>
+            {!isOwnPost && (
+                <button
+                    onClick={handleUnhide}
+                    className="text-xs font-bold text-[#895af6] hover:opacity-80 transition-opacity"
+                >
+                    Show post
+                </button>
+            )}
+        </div>
+    );
   return (
     <article className="bg-[#1a1a1a] rounded-2xl border border-slate-800 overflow-hidden shadow-lg">
 
       {/* Shared by banner */}
       {sharedBy && (
-  <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
-    <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
-    <span>
-      <span className="text-[#895af6] font-semibold">{sharedBy.username}</span>
-      {" "}shared this
-    </span>
-  </div>
-)}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
+          <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
+          <span>
+              <span
+                  className="text-[#895af6] font-semibold cursor-pointer hover:underline"
+                  onClick={() => router.push(`/profile/${sharedBy.username}`)}
+              >
+                  {sharedBy.username}
+              </span>
+              {" "}shared this
+          </span>
+      </div>
+  )}
 
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full overflow-hidden shrink-0">
-            <Image
-              src={normalizeAvatarUrl(author.avatarUrl, author.username)}
-              alt={`${author.username}'s profile picture`}
-              width={40}
-              height={40}
-              className="rounded-full object-cover"
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-sm text-white">{author.username}</span>
-            <span className="text-xs text-slate-500">{relativeTime}</span>
-          </div>
+          <ProfileHoverCard author={author} currentUser={currentUser}>
+            <div
+              className="flex items-center gap-3 cursor-pointer"
+              onClick={() => router.push(`/profile/${author.username}`)}
+            >
+              <div className="size-10 rounded-full overflow-hidden shrink-0">
+                <Avatar
+                  src={normalizeAvatarUrl(author.avatarUrl, author.username)}
+                  alt={author.username}
+                  size={40}
+                  onClick={() => router.push(`/profile/${author.username}`)}
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-sm text-white hover:underline">{author.username}</span>
+                <span className="text-xs text-slate-500">{relativeTime}</span>
+              </div>
+            </div>
+          </ProfileHoverCard>
         </div>
-        <button
-          onClick={() => setHidden(true)}
-          className="text-slate-500 hover:text-white transition-colors"
-        >
-          <img src="/icons/close.svg" alt="close" className="w-5 h-5" />
-        </button>
+      {!isOwnPost && isFollowing && (
+        <span className="text-[11px] text-slate-600 font-medium">Following</span>
+      )}
+        {/* Own post — delete button */}
+        {isOwnPost && (
+            <button
+              onClick={handleDelete}
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/10 
+                         text-slate-400 hover:text-red-400 
+                         transition-all duration-200 
+                         backdrop-blur-sm"
+           >
+              <img src="/icons/delete.svg" alt="delete" className="w-4 h-4" />
+            </button>
+        )}
+
+        {/* Other's post — hide button */}
+        {!isOwnPost && (
+            <button
+                onClick={handleHide}
+                className="text-slate-500 hover:text-white transition-colors"
+            >
+                <img src="/icons/close.svg" alt="hide" className="w-5 h-5" />
+            </button>
+        )}
       </div>
 
       {/* Text content */}
@@ -643,7 +1045,6 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
 
       {/* Image content */}
       {imageUrl && (
-        console.log("Rendering image with URL:", imageUrl),
         <div className="w-full overflow-hidden">
           <Image
             src={normalizeAvatarUrl(imageUrl)}
@@ -737,52 +1138,24 @@ function PostCard({ id, content, imageUrl, createdAt, author, _count,
 
 export default function FeedPage() {
   const { user: authUser, isHydrated } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UserSuggestion[]>([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [searchUsersError, setSearchUsersError] = useState<string>("");
+  const [isFollowBusyId, setIsFollowBusyId] = useState<string | null>(null);
+  const [isFindUsersOpen, setIsFindUsersOpen] = useState(false);
+  const [suggestedUsers, setSuggestedUsers] = useState<UserSuggestion[]>([]);
+  
 
   useState<Record<string, string>>({});
   const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/images/2.jpeg");
 
-  async function loadFeed() {
-    try {
-      setLoading(true);
-      const res = await api.posts.getFeed();
-      const nextPosts = Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-          ? res
-          : [];
-
-      setPosts(nextPosts);
-      sessionStorage.setItem("feed_cache", JSON.stringify(nextPosts));
-      setError(null);
-    } catch (err: any) {
-      console.error("Feed error:", err);
-
-      // Keep feed populated on transient API failures (including 429 rate limits).
-      try {
-        const cached = sessionStorage.getItem("feed_cache");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPosts(parsed);
-            // Don't show error banner when we have cached data to display
-            setError(null);
-            return;
-          }
-        }
-      } catch {
-        // Ignore cache parse errors.
-      }
-
-      // Only set error when we have no cached data to show
-      setError(err.message || "Failed to load feed");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { items: posts, isLoading: loading, hasMore, ref: loaderRef, setItems: setPosts } = useInfiniteScroll<Post>({
+    fetchUrl: "/posts/feed",
+    limit: 20,
+});
 
   async function fetchCurrentUser() {
     try {
@@ -812,40 +1185,167 @@ export default function FeedPage() {
     }
   }
 
-  useEffect(() => {
-  if (!isHydrated) return;
-
-  async function init() {
-    setLoading(true);
-
-    try {
-      const cached = sessionStorage.getItem("feed_cache");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPosts(parsed);
-        }
-      }
-    } catch {
-      // Ignore cache parse errors.
-    }
-
-    await Promise.all([loadFeed(), fetchCurrentUser()]);
-    setLoading(false);
-  }
-  init();
-
-  const interval = setInterval(() => {
-    Promise.all([loadFeed(), fetchCurrentUser()]);
-  }, 30000);
-  return () => clearInterval(interval);
-}, [isHydrated]);
+  
 
   useEffect(() => {
     if (authUser && !currentUser) {
       setCurrentUser(authUser);
     }
   }, [authUser, currentUser]);
+
+  useEffect(() => {
+    if (!isHydrated || !authUser) return;
+
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchUsersError("");
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      setIsSearchingUsers(true);
+      setSearchUsersError("");
+      try {
+        const results = await apiClient.get<UserSuggestion[]>(
+          `/users/find?q=${encodeURIComponent(query)}`
+        );
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Failed to search users:", error);
+        setSearchResults([]);
+        setSearchUsersError("Search is unavailable right now");
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery, isHydrated, authUser]);
+
+  useEffect(() => {
+    if (!isHydrated || !authUser) return;
+
+    const fetchSuggestions = async () => {
+      try {
+        const data = await apiClient.get<UserSuggestion[]>("/users/suggestions");
+        setSuggestedUsers(data || []);
+      } catch (error) {
+        console.error("Failed to fetch suggestions:", error);
+      }
+    };
+
+    fetchSuggestions();
+  }, [isHydrated, authUser]);
+
+  const toggleFollowSearch = async (target: UserSuggestion) => {
+    setIsFollowBusyId(target.id);
+    try {
+      if (target.isFollowing) {
+        await apiClient.delete(`/users/${target.id}/follow`);
+      } else {
+        await apiClient.post(`/users/${target.id}/follow`);
+      }
+
+      setSearchResults((prev) =>
+        prev.map((u) =>
+          u.id === target.id ? { ...u, isFollowing: !target.isFollowing } : u
+        )
+      );
+    } catch (error) {
+      console.error("Failed to toggle follow:", error);
+    } finally {
+      setIsFollowBusyId(null);
+    }
+  };
+
+  const findUsersPanel = (
+    <>
+    <div className="bg-[#1a1a1a] rounded-2xl p-4 mb-6 border border-slate-800">
+      <h3 className="text-lg font-semibold text-white mb-3">Find users</h3>
+      <div className="relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search users..."
+          className="w-full pl-9 pr-3 py-2 bg-[#0f0f0f] rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#895af6]/50 border border-slate-800"
+        />
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {isSearchingUsers && <p className="text-xs text-slate-500">Searching...</p>}
+        {!isSearchingUsers && !!searchUsersError && (
+          <p className="text-xs text-red-400">{searchUsersError}</p>
+        )}
+        {!isSearchingUsers && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+          <p className="text-xs text-slate-500">No users found</p>
+        )}
+        {!isSearchingUsers && searchResults.map((u) => (
+          <div key={u.id} className="flex items-center gap-3">
+            <Avatar
+              src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`}
+              alt={u.displayName || u.username}
+              size={34}
+            />
+            <div className="flex-1 min-w-0">
+              <Link href={`/profile/${u.username}`} className="block text-sm text-white font-medium truncate hover:text-[#895af6] transition">
+                {u.displayName || u.username}
+              </Link>
+              <Link href={`/profile/${u.username}`} className="block text-xs text-slate-500 truncate hover:text-slate-300 transition">
+                @{u.username}
+              </Link>
+            </div>
+            <button
+              onClick={() => toggleFollowSearch(u)}
+              disabled={isFollowBusyId === u.id}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${u.isFollowing ? "bg-slate-700 text-white hover:bg-slate-600" : "bg-[#895af6] text-white hover:bg-[#7344d9]"}`}
+            >
+              {isFollowBusyId === u.id ? "..." : u.isFollowing ? "Following" : "Follow"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Who to follow */}
+    <div className="bg-[#1a1a1a] rounded-2xl p-4 mb-6 border border-slate-800">
+        <h3 className="text-lg font-semibold text-white mb-4">Who to follow</h3>
+        {suggestedUsers.length === 0 ? (
+            <p className="text-sm text-slate-500">No suggestions yet</p>
+        ) : (
+            <div className="space-y-4">
+                {suggestedUsers.map((suggested) => {
+                    const handle = suggested.username?.startsWith("@")
+                        ? suggested.username
+                        : `@${suggested.username}`;
+                    const profilePath = `/profile/${handle.replace(/^@/, "")}`;
+                    const displayName = suggested.displayName || suggested.username;
+                    const avatarSrc = normalizeAvatarUrl(suggested.avatarUrl, suggested.username);
+                    
+                    return (
+                        <div key={suggested.id} className="flex items-center gap-3">
+                            <Avatar src={avatarSrc} alt={displayName} size={40} />
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-white truncate">{displayName}</p>
+                                <p className="text-sm text-slate-500 truncate">{handle}</p>
+                            </div>
+                            <Link
+                                href={profilePath}
+                                className="px-3 py-1.5 bg-slate-800 text-white rounded-full text-xs font-medium hover:bg-slate-700 transition"
+                            >
+                                View
+                            </Link>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+    </div>
+    </>
+  );
 
  async function handleAddPost(text: string, image?: File) {
   try {
@@ -867,7 +1367,15 @@ export default function FeedPage() {
     <div className="flex h-screen bg-[#0d0d0f]">
       <AppSidebar />
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0f0f0f]">
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="xl:hidden sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur px-4 py-3 border-b border-slate-800 flex justify-end">
+            <button
+              onClick={() => setIsFindUsersOpen(true)}
+              className="px-3 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-[#895af6] hover:bg-slate-800/50 transition"
+            >
+              Find users
+            </button>
+          </div>
           <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
             <CreatePost
@@ -882,29 +1390,77 @@ export default function FeedPage() {
               </div>
             )}
 
-            {!loading && error && (
+            {!loading && feedError && (
               <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
                 Failed to load feed. Refresh again in a moment.
               </div>
             )}
 
-            {!loading && !error && posts.length === 0 && (
+            {!loading && !feedError && posts.length === 0 && (
               <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
                 No posts yet.
               </div>
             )}
-
-            {posts.map((post) => (
-              <PostCard
-                key={post.id}
-                {...post}
-                currentUser={currentUser}
-              />
-            ))}
-
+            {!loading && !feedError && posts.length > 0 && (
+            <>
+              {posts.map((post) => (
+                <PostCard
+                  key={post.feedItemId || post.id}
+                  {...post}
+                  currentUser={currentUser}
+                />
+              ))}
+          
+              <div ref={loaderRef} className="py-6 flex justify-center">
+                {loading && (
+                  <div className="text-slate-500 text-sm animate-pulse">
+                    Loading more posts...
+                  </div>
+                )}
+                {!hasMore && posts.length > 0 && (
+                  <div className="text-slate-600 text-sm">
+                    You're all caught up ✓
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           </div>
         </div>
       </div>
+
+      {isFindUsersOpen && (
+          <div className="fixed inset-0 z-50 xl:hidden">
+              <button
+                  type="button"
+                  onClick={() => setIsFindUsersOpen(false)}
+                  className="absolute inset-0 bg-black/60"
+                  aria-label="Close find users panel"
+              />
+              <aside className="absolute right-0 top-0 h-full w-[min(90vw,24rem)] overflow-y-auto border-l border-slate-800/60 bg-[#0f0f0f] p-4 shadow-2xl">
+                  <div className="mb-3 flex items-center justify-between">
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Find users</h2>
+                      <button
+                          type="button"
+                          onClick={() => setIsFindUsersOpen(false)}
+                          className="p-2 rounded-full text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition"
+                          aria-label="Close"
+                      >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                      </button>
+                  </div>
+                  {findUsersPanel}
+              </aside>
+          </div>
+      )}
+
+      {/* Right Sidebar */}
+      <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto bg-[#0f0f0f] border-l border-slate-800/50 custom-scrollbar">
+        {findUsersPanel}
+      </aside>
+
     </div>
   );
 }
