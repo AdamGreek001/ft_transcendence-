@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Avatar } from "@/components/ui";
@@ -48,7 +47,6 @@ interface StartConversationResponse {
 
 export default function ProfilePage({ params }: ProfilePageProps) {
     const router = useRouter();
-    const t = useTranslations("profile");
     const { user: currentUser } = useAuth();
 
     const [username, setUsername] = useState<string>("");

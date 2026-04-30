@@ -4,7 +4,7 @@
 
 ## Description
 
-**ft_transcendence** is a real-time social media platform where users can create profiles, publish posts, follow other users, chat in real-time, and explore community content. The platform includes Google OAuth and TOTP two-factor authentication, WebSocket-powered messaging, internationalization (EN/FR/AR), and a complete monitoring stack.
+**ft_transcendence** is a real-time social media platform where users can create profiles, publish posts, follow other users, chat in real-time, and explore community content. The platform includes Google OAuth and TOTP two-factor authentication, WebSocket-powered messaging, and a complete monitoring stack.
 
 ### Key Features
 
@@ -13,7 +13,6 @@
 - **Real-time Chat** — WebSocket-based direct messaging with typing indicators
 - **Explore & Search** — Discover users and content with full-text search
 - **Notifications** — Real-time alerts for likes, comments, follows, and messages
-- **Internationalization** — Full i18n support (English, French, Arabic)
 - **Two-Factor Authentication** — TOTP-based 2FA via authenticator apps
 - **Monitoring** — Prometheus metrics + Grafana dashboards
 - **Security** — WAF/ModSecurity, HashiCorp Vault for secrets, HTTPS, rate limiting
@@ -241,7 +240,6 @@ make up
 - Built all Next.js pages (auth, feed, profile, messages, explore, notifications, legal)
 - Created reusable UI component library (Button, Input, Avatar)
 - Implemented Tailwind design system and responsive layouts
-- Set up i18n with next-intl (English, French, Arabic)
 - Built Zustand state management and API client
 
 ### \<login4\> — Backend Developer
