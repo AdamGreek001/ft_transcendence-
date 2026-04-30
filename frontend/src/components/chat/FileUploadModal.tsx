@@ -12,6 +12,8 @@ interface FileUploadModalProps {
 export function FileUploadModal({ isOpen, onClose, onUpload, isLoading }: FileUploadModalProps) {
     const [files, setFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragEnter = (e: React.DragEvent) => {
@@ -35,18 +37,29 @@ export function FileUploadModal({ isOpen, onClose, onUpload, isLoading }: FileUp
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
+        setError(null);
 
         const droppedFiles = Array.from(e.dataTransfer.files);
-        setFiles(prev => [...prev, ...droppedFiles]);
+        const validFiles = droppedFiles.filter(f => f.size <= MAX_FILE_SIZE);
+        if (validFiles.length < droppedFiles.length) {
+            setError("Some files were too large. Maximum size is 5MB.");
+        }
+        setFiles(prev => [...prev, ...validFiles]);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setError(null);
         const selectedFiles = Array.from(e.target.files || []);
-        setFiles(prev => [...prev, ...selectedFiles]);
+        const validFiles = selectedFiles.filter(f => f.size <= MAX_FILE_SIZE);
+        if (validFiles.length < selectedFiles.length) {
+            setError("Some files were too large. Maximum size is 5MB.");
+        }
+        setFiles(prev => [...prev, ...validFiles]);
     };
 
     const removeFile = (index: number) => {
         setFiles(prev => prev.filter((_, i) => i !== index));
+        setError(null);
     };
 
     const handleSubmit = async (e: FormEvent) => {
@@ -119,6 +132,12 @@ export function FileUploadModal({ isOpen, onClose, onUpload, isLoading }: FileUp
                             disabled={isLoading}
                         />
                     </div>
+                    
+                    {error && (
+                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     {/* File List */}
                     {files.length > 0 && (

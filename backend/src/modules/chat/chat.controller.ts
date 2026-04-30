@@ -22,7 +22,7 @@ import { SkipThrottle } from "@nestjs/throttler";
 import { SendMessageDto, GetMessagesQueryDto } from "./dto";
 
 // File size limit for chat uploads
-const MAX_CHAT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_CHAT_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // File filter for chat uploads (allow any file type)
 const chatFileFilter = (req: any, file: Express.Multer.File, callback: any) => {
@@ -118,7 +118,7 @@ export class ChatController {
         }
         if (file.size > MAX_CHAT_FILE_SIZE) {
             throw new BadRequestException(
-                `File size exceeds maximum limit of 50MB. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+                `File size exceeds maximum limit of 5MB. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
             );
         }
         return this.mediaService.upload("chat", file);
