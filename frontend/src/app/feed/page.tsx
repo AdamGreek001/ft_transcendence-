@@ -221,12 +221,10 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
 
   if (!allowedTypes.includes(file.type)) {
     toast.error("Only PNG, JPG, JPEG, WEBP images are allowed");
-    return;
   }
 
-  if (file.size > 5 * 1024 * 1024) {
+  else if (file.size > 5 * 1024 * 1024) {
     toast.error("Image is too large (max 5MB)");
-    return;
   }
 
   setImage(file);
