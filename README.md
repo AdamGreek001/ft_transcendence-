@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by \<login1\>, \<login2\>, \<login3\>, \<login4\>, \<login5\>.*
+*This project has been created as part of the 42 curriculum by ehafiane, mjuicha, eel-alao, kelmounj, ataai.*
 
 # ft_transcendence — Social Platform
 
@@ -103,11 +103,11 @@ make up
 
 | Member       | Role(s)          | Responsibilities                                        |
 |-------------|------------------|---------------------------------------------------------|
-| \<login1\>  | Project Owner    | Vision, priorities, module selection, stakeholder sync   |
-| \<login2\>  | Tech Lead        | Architecture, code reviews, CI/CD, DevOps               |
-| \<login3\>  | Frontend Dev     | UI/UX, React components, pages, i18n, Tailwind          |
-| \<login4\>  | Backend Dev      | API, WebSocket, auth, TypeORM, database                 |
-| \<login5\>  | Full-Stack Dev   | Search, notifications, media, monitoring, security      |
+| ehafiane  | Project Owner    | Vision, priorities, module selection, stakeholder sync   |
+| eel-alao  | Tech Lead        | Architecture, code reviews, CI/CD, DevOps               |
+| all  | Frontend Dev     | UI/UX, React components, pages, i18n, Tailwind          |
+| all  | Backend Dev      | API, WebSocket, auth, TypeORM, database                 |
+| all  | Full-Stack Dev   | Search, notifications, media, monitoring, security      |
 
 ---
 
@@ -224,32 +224,32 @@ make up
 
 ## Individual Contributions
 
-### \<login1\> — Project Owner
+### ehafiane — Project Owner
 - Defined project vision and feature priorities
 - Managed sprint planning and task allocation
 - Coordinated team communication and deadlines
 
-### \<login2\> — Tech Lead
+### eel-alao — Tech Lead
 - Designed system architecture and Docker infrastructure
 - Implemented WAF/ModSecurity configuration
 - Set up HashiCorp Vault for secrets management
 - Created Prometheus/Grafana monitoring stack
 - Code reviews and CI/CD pipeline
 
-### \<login3\> — Frontend Developer
+### all — Frontend Developer
 - Built all Next.js pages (auth, feed, profile, messages, explore, notifications, legal)
 - Created reusable UI component library (Button, Input, Avatar)
 - Implemented Tailwind design system and responsive layouts
 - Built Zustand state management and API client
 
-### \<login4\> — Backend Developer
+### all — Backend Developer
 - Designed TypeORM entity schema (8 models)
 - Implemented authentication (JWT, Google OAuth, TOTP 2FA)
 - Built REST API modules (users, posts, comments, public-api)
 - Created WebSocket chat gateway with Socket.io
 - Set up Swagger API documentation
 
-### \<login5\> — Full-Stack Developer
+### all — Full-Stack Developer
 - Implemented search module with filters
 - Built a notification system
 - Created media upload service (local storage)
