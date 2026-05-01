@@ -6,8 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: ft_waf
     ports:
-      - "${NGINX_HTTP_PORT:-8080}:8080"
-      - "${NGINX_HTTPS_PORT:-8443}:8443"
+      - "${NGINX_HTTP_PORT}:8080"
+      - "${NGINX_HTTPS_PORT}:8443"
     environment:
       BACKEND: http://nginx:80
       BACKEND_SSL: http://nginx:443
@@ -64,7 +64,7 @@ services:
       dockerfile: Dockerfile
     container_name: ft_backend
     ports:
-      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,15 +96,14 @@ services:
       context: ./postgres
       dockerfile: Dockerfile
     container_name: ft_postgres
-    # No external port exposure for security - only internal access
     expose:
       - "5432"
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-transcendence}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-transcendence_password}
-      POSTGRES_DB: ${POSTGRES_DB:-transcendence}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     healthcheck:
       test:
         [
@@ -193,7 +192,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: ft_postgres_exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-transcendence}:${POSTGRES_PASSWORD:-transcendence_password}@postgres:5432/${POSTGRES_DB:-transcendence}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-transcendence}?sslmode=disable"
     depends_on:
       postgres:
         condition: service_healthy
