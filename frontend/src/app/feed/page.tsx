@@ -223,6 +223,7 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     toast.error("Only PNG, JPG, JPEG, WEBP images are allowed");
     setImage(null);
     setImagePreview(null);
+    e.target.value = ""
     return;
   }
 
@@ -230,6 +231,7 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     toast.error("Image is too large (max 5MB)");
     setImage(null);
     setImagePreview(null);
+    e.target.value = ""
     return;
   }
 
