@@ -13,9 +13,7 @@ import { toast } from "@/lib/toast";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { PostProvider, usePostContext } from "@/context/PostContext";
 
-// ============================================================
-// TYPES — ready for real API data later
-// ============================================================
+
 
 interface UserSuggestion {
     id: string;
@@ -70,9 +68,6 @@ interface Post {
 
 
 
-// ============================================================
-// AVATAR URL NORMALIZER (same as AppSidebar)
-// ============================================================
 
 export function normalizeAvatarUrl(avatarUrl?: string | null, username?: string): string {
   if (!avatarUrl) {
@@ -101,9 +96,6 @@ export function normalizeAvatarUrl(avatarUrl?: string | null, username?: string)
   return `/uploads/${avatarUrl.replace(/^\/+/, "")}`;
 }
 
-// ============================================================
-// CREATE POST
-// ============================================================
 
 interface CreatePostProps {
   currentUser?: {
@@ -168,8 +160,7 @@ function CreatePost({ currentUser, onSubmit }: CreatePostProps) {
     currentUser?.avatarUrl,
     currentUser?.username
   );
-  console.log("currentUser:", currentUser);
-  console.log("avatarUrl:", avatarUrl);
+
 
     function CharCounter({ current, max }: { current: number; max: number }) {
   const remaining = max - current;
@@ -248,8 +239,7 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!canPost) return;
   
     try {
-      console.log("Posting:", text, image);
-  
+
       await onSubmit(text, image ?? undefined);
       toast.success("Your post was sent");
   
@@ -334,9 +324,6 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
   );
 }
 
-// ============================================================
-// COMMENT ITEM
-// ============================================================
 
 function CommentItem({ comment, onReply, isReply = false , currentUser}: {
   comment: Comment;
@@ -400,9 +387,6 @@ return (
 }
 
 
-// ============================================================
-// COMMENT SECTION
-// ============================================================
 
 function CommentSection({ postId, currentUser, onCommentAdded }: {
   postId: string;

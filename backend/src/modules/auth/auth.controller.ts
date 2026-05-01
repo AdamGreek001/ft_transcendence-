@@ -25,7 +25,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   @Post("register")
   @ApiOperation({ summary: "Register a new user" })
@@ -62,7 +62,15 @@ export class AuthController {
       redirectUrl.searchParams.append("userId", result.userId);
     } else {
       redirectUrl.searchParams.append("token", result.accessToken || "");
-      redirectUrl.searchParams.append("user", JSON.stringify(result.user));
+      // Only pass minimal identity fields in the URL - local file paths (avatarUrl)
+      // in the JSON trigger ModSecurity path-traversal false positives (403).
+      // The frontend will fetch the full profile via /api/users/me after login.
+      const safeUser = {
+        id: result.user?.id,
+        username: result.user?.username,
+        email: result.user?.email,
+      };
+      redirectUrl.searchParams.append("user", JSON.stringify(safeUser));
     }
     res.redirect(redirectUrl.toString());
   }

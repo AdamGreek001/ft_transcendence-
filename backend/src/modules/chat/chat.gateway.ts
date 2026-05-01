@@ -198,7 +198,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
 
-    // Helper method to emit to a specific user
     emitToUser(userId: string, event: string, data: any) {
         this.server.to(`user:${userId}`).emit(event, data);
     }

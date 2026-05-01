@@ -22,7 +22,7 @@ export class AuthService {
     private readonly userRepo: Repository<User>,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const exists = await this.userRepo.findOne({
@@ -149,6 +149,15 @@ export class AuthService {
         oauthProvider: "google",
       });
       await this.userRepo.save(user);
+    } else {
+      // Existing user: only update the avatar if they have NOT set a custom
+      // (locally-uploaded) avatar. A custom avatar path starts with "/uploads".
+      const hasCustomAvatar =
+        user.avatarUrl && user.avatarUrl.startsWith("/uploads");
+      if (!hasCustomAvatar && googleUser.picture && user.avatarUrl !== googleUser.picture) {
+        await this.userRepo.update(user.id, { avatarUrl: googleUser.picture });
+        user.avatarUrl = googleUser.picture;
+      }
     }
 
     if (user.twoFactorEnabled) {
@@ -162,7 +171,6 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
-        avatarUrl: user.avatarUrl,
         displayName: user.displayName,
       },
     };

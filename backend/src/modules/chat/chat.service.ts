@@ -37,7 +37,6 @@ export class ChatService {
     }
 
     async sendMessage(senderId: string, receiverId: string, content: string): Promise<DirectMessage> {
-        // Check if blocked
         const isBlocked = await this.blockRepo.findOne({
             where: [
                 { blockerId: receiverId, blockedId: senderId },
@@ -49,10 +48,8 @@ export class ChatService {
             throw new ForbiddenException("Cannot send message to this user");
         }
 
-        // Get or create conversation
         const conversation = await this.getOrCreateConversation(senderId, receiverId);
 
-        // Create message
         const msg = this.msgRepo.create({
             content,
             senderId,
@@ -61,13 +58,11 @@ export class ChatService {
         });
         const savedMsg = await this.msgRepo.save(msg);
 
-        // Update conversation with last message
         await this.convRepo.update(conversation.id, {
             lastMessage: content.substring(0, 200),
             lastMessageAt: new Date(),
         });
 
-        // Return with sender info
         const fullMsg = await this.msgRepo.findOne({
             where: { id: savedMsg.id },
             relations: ["sender"],
@@ -136,7 +131,6 @@ export class ChatService {
                     },
                 });
 
-                // Get the other user in the conversation
                 const otherUser = conv.user1Id === userId ? conv.user2 : conv.user1;
 
                 return {
@@ -161,7 +155,6 @@ export class ChatService {
     }
 
     async getMessages(conversationId: string, userId: string, page: number, limit: number) {
-        // Verify user is part of conversation
         const conversation = await this.convRepo.findOne({
             where: { id: conversationId },
         });

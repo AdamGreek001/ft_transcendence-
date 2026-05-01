@@ -38,14 +38,13 @@ git clone <repository-url>
 cd ft_transcendence
 
 # 2 — Create and configure environment variables
-cp .env.example .env
-# Edit .env and replace ALL placeholder values with real values
+# Copy and fill in the required values in .env
 
 # 3 — Launch all services
 make up
 
 # 4 — Open in browser
-# Navigate to https://localhost:8443 (accept self-signed cert warning)
+# Navigate to https://localhost:8080 
 ```
 
 ### Available Commands
@@ -80,7 +79,7 @@ make up
                         │       │
               ┌─────────▼─┐  ┌──▼──────────┐
               │  frontend  │  │   backend   │
-              │ Next.js 15 │  │  NestJS 10  │
+              │ Next.js 15 │  │  NestJS 11  │
               │   :3000    │  │   :3001     │
               └────────────┘  └──┬──┬───┬───┘
                                  │  │   │
@@ -105,7 +104,7 @@ make up
 |-------------|------------------|---------------------------------------------------------|
 | ehafiane  | Project Owner    | Vision, priorities, module selection, stakeholder sync   |
 | eel-alao  | Tech Lead        | Architecture, code reviews, CI/CD, DevOps               |
-| all  | Frontend Dev     | UI/UX, React components, pages, i18n, Tailwind          |
+| all  | Frontend Dev     | UI/UX, React components, pages, Tailwind          |
 | all  | Backend Dev      | API, WebSocket, auth, TypeORM, database                 |
 | all  | Full-Stack Dev   | Search, notifications, media, monitoring, security      |
 
@@ -125,7 +124,7 @@ make up
 
 | Layer      | Technology       | Justification                                                |
 |-----------|------------------|--------------------------------------------------------------|
-| Frontend  | Next.js 16       | App Router, React 19, View Transitions, excellent DX         |
+| Frontend  | Next.js 15       | App Router, React 19, View Transitions, excellent DX         |
 | Styling   | Tailwind CSS 3   | Utility-first CSS, fast iteration, responsive design         |
 | Backend   | NestJS 11        | Modular architecture, TypeScript, Express v5, Swagger        |
 | ORM       | TypeORM 0.3      | Decorator-based entities, migrations, Repository pattern     |
@@ -206,19 +205,21 @@ make up
 
 ## Modules
 
-| Module                  | Type  | Points | Justification                                  | Developer(s)    |
-|------------------------|-------|--------|-------------------------------------------------|-----------------|
-| Use a Framework (Backend) | Major | 2    | NestJS for modular, typed backend              | all.            |
-| Use a Framework (Frontend)| Major | 2   | Next.js for SSR, App Router, React 19           | all.            |
-| Use a database for Backend| Minor | 1   | PostgreSQL with TypeORM                         | all.            |
-| Standard User Management | Major | 2    | Registration, profiles, friends, blocking       | kelmounj, mjuicha |
-| Remote Authentication (Google) | Major | 2 | Google OAuth2 integration                    | kelmounj        |
-| Two-Factor Auth (TOTP)  | Major | 2     | TOTP authenticator app support                  | kelmounj        |
-| WAF/ModSecurity          | Major | 2    | OWASP CRS, strict request filtering             | ataai.          |
-| HashiCorp Vault          | Major | 2    | Encrypted secrets management                    | ataai.          |
-| Monitoring (ELK/Prometheus)| Minor| 1   | Prometheus + Grafana dashboards                 | eel-alao.       |
+| Module                              | Type  | Points | Justification                                                        | Developer(s)         |
+|-------------------------------------|-------|--------|----------------------------------------------------------------------|----------------------|
+| Use a Framework as backend          | Major |   2    | NestJS — modular, typed, Express v5 under the hood                   | all                  |
+| Use a Framework as frontend         | Major |   2    | Next.js 15 — App Router, React 19, SSR, View Transitions             | all                  |
+| Use a database for the Backend      | Minor |   1    | PostgreSQL 16 + TypeORM 0.3 — migrations, Repository pattern         | all                  |
+| Standard user management            | Major |   2    | Registration, profiles, avatar, followers/blocking, feed visibility  | kelmounj, mjuicha    |
+| Implementing a remote authentication| Major |   2    | Google OAuth 2.0 — social login via Google provider                  | kelmounj             |
+| Implementing Two-Factor Auth & JWT  | Major |   2    | TOTP 2FA (authenticator apps) + stateless JWT sessions               | kelmounj             |
+| Implement WebSocket for real-time   | Major |   2    | Socket.io — live chat, typing indicators, online presence            | ehafiane             |
+| Add a public API                    | Major |   2    | Secured API key, rate limiting, Swagger docs, 5+ endpoints           | eel-alao             |
+| Implement a complete notification   | Minor |   1    | Real-time alerts for likes, comments, follows, messages (WebSocket)  | ehafiane             |
+| WAF/ModSecurity + HashiCorp Vault   | Major |   2    | OWASP CRS request filtering + encrypted secrets management           | ataai                |
+| Monitoring system (Prometheus/Grafana)| Major | 2   | Prometheus metrics collection, Grafana dashboards, exporters for nginx & postgres | eel-alao  |
 
-**Total: 17 points**
+**Total: 21 points** *(requirement: 14 points)*
 
 ---
 
@@ -243,7 +244,7 @@ make up
 - Built Zustand state management and API client
 
 ### all — Backend Developer
-- Designed TypeORM entity schema (8 models)
+- Designed TypeORM entity schema (13 models)
 - Implemented authentication (JWT, Google OAuth, TOTP 2FA)
 - Built REST API modules (users, posts, comments, public-api)
 - Created WebSocket chat gateway with Socket.io
@@ -269,11 +270,3 @@ make up
 - [HashiCorp Vault Docs](https://developer.hashicorp.com/vault/docs)
 - [Prometheus Docs](https://prometheus.io/docs)
 
-### AI Usage
-AI tools were used to assist with:
-- **Scaffolding**: Generating initial project structure and boilerplate files
-- **Configuration**: Docker, nginx, Prometheus, and Grafana configuration templates
-- **Documentation**: README structure and content drafting
-- **Code patterns**: NestJS module/controller/service patterns, React component templates
-
-All AI-generated code was reviewed, understood, and modified by team members before inclusion.
