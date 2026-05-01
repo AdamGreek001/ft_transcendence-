@@ -172,25 +172,7 @@ services:
     restart: unless-stopped
     env_file: .env
 
-  # ─── cAdvisor (Container Metrics) ────────────────────────────
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: ft_cadvisor
-    # privileged: true
-    command:
-      - "--docker_only=true"
-      - "--store_container_labels=true"
-      - "--housekeeping_interval=10s"
-    volumes:
-      # - /:/rootfs:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # - /var/run:/var/run:ro
-      # - /sys:/sys:ro
-      # - /var/lib/docker/:/var/lib/docker:ro
-      # - /dev/disk/:/dev/disk:ro
-    networks:
-      - app-network
-    restart: unless-stopped
+
 
   # ─── Nginx Prometheus Exporter ───────────────────────────────
   nginx-exporter:
@@ -218,61 +200,6 @@ services:
       - app-network
     restart: unless-stopped
 
-  # ─── ELK Stack (Log Management) ──────────────────────────────
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.18
-    container_name: ft_elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  logstash:
-    image: docker.elastic.co/logstash/logstash:7.17.18
-    container_name: ft_logstash
-    user: root
-    environment:
-      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
-    volumes:
-      - ./monitoring/elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
-      - /var/lib/docker:/var/lib/docker:ro
-    depends_on:
-      - elasticsearch
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.18
-    container_name: ft_kibana
-    environment:
-      - SERVER_BASEPATH=/kibana
-      - SERVER_REWRITEBASEPATH=true
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    ports:
-      - "5601:5601"
-    depends_on:
-      - elasticsearch
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  # ─── ELK Index Lifecycle Setup ───────────────────────────────
-  elk-setup:
-    image: alpine/curl:latest
-    container_name: ft_elk_setup
-    volumes:
-      - ./monitoring/elk/setup-ilm.sh:/setup-ilm.sh:ro
-    command: /bin/sh /setup-ilm.sh
-    depends_on:
-      - elasticsearch
-    networks:
-      - app-network
 
 # ─── Named Volumes ──────────────────────────────────────────
 volumes:
@@ -287,8 +214,6 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
-    driver: local
-  elasticsearch_data:
     driver: local
 
 # ─── Networks ────────────────────────────────────────────────

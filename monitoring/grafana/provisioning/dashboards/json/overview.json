@@ -5,7 +5,6 @@
     "graphTooltip": 2,
     "id": null,
     "links": [
-        { "title": "Docker Containers", "url": "/grafana/d/ft-docker-containers", "type": "link", "icon": "dashboard", "targetBlank": false },
         { "title": "Nginx Traffic", "url": "/grafana/d/ft-nginx-traffic", "type": "link", "icon": "dashboard", "targetBlank": false },
         { "title": "PostgreSQL", "url": "/grafana/d/ft-postgresql", "type": "link", "icon": "dashboard", "targetBlank": false }
     ],
@@ -64,62 +63,6 @@
             "title": "PostgreSQL",
             "type": "stat",
             "targets": [{ "expr": "up{job=\"postgres\"}", "legendFormat": "" }]
-        },
-        {
-            "datasource": { "type": "prometheus", "uid": "prometheus" },
-            "fieldConfig": {
-                "defaults": {
-                    "color": { "mode": "thresholds" },
-                    "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "#F2495C" }, { "value": 1, "color": "#73BF69" }] },
-                    "mappings": [{ "options": { "0": { "text": "DOWN", "color": "#F2495C", "index": 0 }, "1": { "text": "UP", "color": "#73BF69", "index": 1 } }, "type": "value" }]
-                }
-            },
-            "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
-            "id": 4,
-            "options": { "colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } },
-            "title": "cAdvisor",
-            "type": "stat",
-            "targets": [{ "expr": "up{job=\"cadvisor\"}", "legendFormat": "" }]
-        },
-        {
-            "collapsed": false,
-            "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
-            "id": 101,
-            "title": "🖥️ CONTAINERS",
-            "type": "row"
-        },
-        {
-            "datasource": { "type": "prometheus", "uid": "prometheus" },
-            "fieldConfig": {
-                "defaults": {
-                    "color": { "mode": "continuous-BlYlRd" },
-                    "unit": "percentunit",
-                    "min": 0, "max": 1,
-                    "custom": { "lineWidth": 2, "fillOpacity": 15, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true }
-                }
-            },
-            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-            "id": 5,
-            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
-            "title": "CPU Usage",
-            "type": "timeseries",
-            "targets": [{ "expr": "rate(container_cpu_usage_seconds_total{id=~\"/docker/.*\", cpu=\"total\"}[5m])", "legendFormat": "{{ name }}{{ id }}" }]
-        },
-        {
-            "datasource": { "type": "prometheus", "uid": "prometheus" },
-            "fieldConfig": {
-                "defaults": {
-                    "color": { "mode": "continuous-BlYlRd" },
-                    "unit": "bytes",
-                    "custom": { "lineWidth": 2, "fillOpacity": 15, "gradientMode": "scheme", "showPoints": "never", "spanNulls": true }
-                }
-            },
-            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-            "id": 6,
-            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi" } },
-            "title": "Memory Usage",
-            "type": "timeseries",
-            "targets": [{ "expr": "container_memory_usage_bytes{id=~\"/docker/.*\"}", "legendFormat": "{{ name }}{{ id }}" }]
         },
         {
             "collapsed": false,
