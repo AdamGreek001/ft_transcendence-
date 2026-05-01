@@ -366,7 +366,7 @@ return (
                 {comment.author.username}
               </span>
             </ProfileHoverCard>
-            <p className="text-sm text-slate-400">{comment.content}</p>
+            <p className="text-sm text-slate-400 break-all">{comment.content}</p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
             {!isReply && (
@@ -1259,6 +1259,38 @@ export default function FeedPage() {
     }
   };
 
+  const [newPostsAvailable, setNewPostsAvailable] = useState(false);
+
+  useEffect(() => {
+    async function checkNew() {
+        try {
+            const res = await api.posts.getFeed(1, 1);
+            const latest = res?.data?.[0];
+            if (!latest) return;
+            setPosts((prev) => {
+                const firstId = (prev[0] as any)?.feedItemId || prev[0]?.id;
+                const latestId = latest.feedItemId || latest.id;
+                if (prev.length > 0 && latestId !== firstId) {
+                    setNewPostsAvailable(true);
+                }
+                return prev;
+            });
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    const interval = setInterval(checkNew, 30000);
+    return () => clearInterval(interval);
+}, []);
+  
+  function handleLoadNew() {
+      setNewPostsAvailable(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // reset hook by reloading page or resetting state
+      window.location.reload(); // simple for now — TODO: proper reset
+  }
+
   const findUsersPanel = (
     <>
     <div className="bg-[#1a1a1a] rounded-2xl p-4 mb-6 border border-slate-800">
@@ -1347,20 +1379,18 @@ export default function FeedPage() {
     </>
   );
 
- async function handleAddPost(text: string, image?: File) {
-  try {
-    let imageUrl: string | undefined;
-
-    if (image) {
-      const uploaded = await api.media.uploadPost(image);
-      imageUrl = uploaded.url;
+  async function handleAddPost(text: string, image?: File) {
+    try {
+        let imageUrl: string | undefined;
+        if (image) {
+            const uploaded = await api.media.uploadPost(image);
+            imageUrl = uploaded.url;
+        }
+        const created = await api.posts.create(text, imageUrl);
+        setPosts((prev) => [created, ...prev]); // prepend only
+    } catch (err: any) {
+        console.error("Create post error:", err);
     }
-
-    const created = await api.posts.create(text, imageUrl);
-    setPosts((prev) => [created, ...prev]);
-  } catch (err: any) {
-    console.error("Create post error:", err);
-  }
 }
 
   return (
@@ -1383,48 +1413,61 @@ export default function FeedPage() {
               currentUser={currentUser || { username: "user", avatarUrl: null }}
               onSubmit={handleAddPost}
             />
-
-            {loading && (
-              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
-                Loading feed...
+            {newPostsAvailable && (
+              <div className="sticky top-0 z-50 bg-[#0f0f0f] pb-2">
+                <button
+                  onClick={handleLoadNew}
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
+                  style={{ backgroundColor: "#895af6" }}
+                >
+                  New posts available — tap to refresh
+                </button>
               </div>
+            )}
+            {/* Initial loading — only show when no posts yet */}
+            {loading && posts.length === 0 && (
+                <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                    Loading feed...
+                </div>
             )}
 
             {!loading && feedError && (
-              <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
-                Failed to load feed. Refresh again in a moment.
-              </div>
+                <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
+                    Failed to load feed. Refresh again in a moment.
+                </div>
             )}
 
-            {!loading && !feedError && posts.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
-                No posts yet.
-              </div>
+            {!feedError && posts.length === 0 && !loading && (
+                <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                    No posts yet.
+                </div>
             )}
-            {!loading && !feedError && posts.length > 0 && (
-            <>
-              {posts.map((post) => (
-                <PostCard
-                  key={post.feedItemId || post.id}
-                  {...post}
-                  currentUser={currentUser}
-                />
-              ))}
-          
-              <div ref={loaderRef} className="py-6 flex justify-center">
-                {loading && (
-                  <div className="text-slate-500 text-sm animate-pulse">
-                    Loading more posts...
-                  </div>
-                )}
-                {!hasMore && posts.length > 0 && (
-                  <div className="text-slate-600 text-sm">
-                    You're all caught up ✓
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+
+            {posts.length > 0 && (
+                <>
+                    {posts.map((post) => (
+                        <PostCard
+                            key={post.feedItemId || post.id}
+                            {...post}
+                            currentUser={currentUser}
+                        />
+                    ))}
+
+                    <div ref={loaderRef} className="py-6 flex justify-center">
+                        {/* scroll loading — shows at bottom only */}
+                        {loading && posts.length > 0 && (
+                            <div className="text-slate-500 text-sm animate-pulse">
+                                Loading more posts...
+                            </div>
+                        )}
+                        {!hasMore && posts.length > 0 && (
+                            <div className="text-slate-600 text-sm">
+                                You're all caught up ✓
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
           </div>
         </div>
       </div>
