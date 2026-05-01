@@ -8,10 +8,9 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-
-// import your existing PostCard and normalizeAvatarUrl
 import { PostCard, normalizeAvatarUrl } from "@/app/feed/page";
 import { FollowListModal } from "@/components/profile/FollowingListModal";
+import { toast } from "@/lib/toast";
 
 type Tab = "posts" | "saved";
 
@@ -61,7 +60,6 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // tabs
     const [activeTab, setActiveTab] = useState<Tab>("posts");
     const [followModal, setFollowModal] = useState<{
         open: boolean;
@@ -110,25 +108,37 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     };
 
     const handleFollowChangeFromModal = (userId: string, nowFollowing: boolean) => {
-      // if the profile user themselves was followed/unfollowed from the modal
-      if (userId === profile?.id) {
-        setIsFollowing(nowFollowing);
+        if (userId === profile?.id) {
+            setIsFollowing(nowFollowing);
+            setIsFriend(nowFollowing ? profileFollowsCurrent : false);
+            setProfile((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    _count: {
+                        ...prev._count,
+                        followers: nowFollowing
+                            ? (prev._count?.followers ?? 0) + 1
+                            : Math.max(0, (prev._count?.followers ?? 0) - 1),
+                    },
+                };
+            });
+        }
+        if (userId !== profile?.id && currentUser?.id === profile?.id) {
         setProfile((prev) => {
-          if (!prev) return prev;
-          const followers = prev._count?.followers ?? 0;
-          return {
-            ...prev,
-            _count: {
-              ...prev._count,
-              followers: nowFollowing
-                ? followers + 1
-                : Math.max(0, followers - 1),
-            },
-          };
+            if (!prev) return prev;
+            return {
+                ...prev,
+                _count: {
+                    ...prev._count,
+                    following: nowFollowing
+                        ? (prev._count?.following ?? 0) + 1
+                        : Math.max(0, (prev._count?.following ?? 0) - 1),
+                },
+            };
         });
-        setIsFriend(nowFollowing ? profileFollowsCurrent : false);
-      }
-    };
+    }
+};
 
     useEffect(() => {
         let cancelled = false;
@@ -141,15 +151,15 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             try {
                 const data = await apiClient.get<UserProfileResponse & { 
                     isFollowing?: boolean;
-                    isFollowedBy?: boolean; // ← add this
+                    isFollowedBy?: boolean;
                 }>(
                     `/users/${resolved.username}?currentUserId=${currentUser?.id ?? ""}`
                 );
                 if (cancelled) return;
                 setProfile(data);
                 setIsFollowing(data.isFollowing ?? false);
-                setProfileFollowsCurrent(data.isFollowedBy ?? false); // ← add this
-                setIsFriend((data.isFollowing ?? false) && (data.isFollowedBy ?? false)); // ← add this
+                setProfileFollowsCurrent(data.isFollowedBy ?? false);
+                setIsFriend((data.isFollowing ?? false) && (data.isFollowedBy ?? false));
             } catch (err: any) {
                 if (cancelled) return;
                 const status = err?.response?.status;
@@ -166,16 +176,36 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const handleToggleFollow = async () => {
         if (!profile) return;
         setIsFollowBusy(true);
+    
+        const wasFollowing = isFollowing;
+    
+        setIsFollowing(!wasFollowing);
+        setIsFriend(!wasFollowing ? profileFollowsCurrent : false);
+        setProfile((prev) => {
+            if (!prev) return prev;
+            const followers = prev._count?.followers ?? 0;
+            return {
+                ...prev,
+                _count: {
+                    ...prev._count,
+                    followers: wasFollowing
+                        ? Math.max(0, followers - 1)
+                        : followers + 1,
+                },
+            };
+        });
+    
         try {
-            if (isFollowing) {
+            if (wasFollowing) {
                 await apiClient.delete(`/users/${profile.id}/follow`);
-                setIsFollowing(false);
-                setIsFriend(false);
+                toast.success(`Unfollowed @${profile.username}`);
             } else {
                 await apiClient.post(`/users/${profile.id}/follow`);
-                setIsFollowing(true);
-                setIsFriend(profileFollowsCurrent); // ← friend only if they follow back
+                toast.success(`Following @${profile.username}`);
             }
+        } catch (error) {
+            setIsFollowing(wasFollowing);
+            setIsFriend(wasFollowing ? profileFollowsCurrent : false);
             setProfile((prev) => {
                 if (!prev) return prev;
                 const followers = prev._count?.followers ?? 0;
@@ -183,13 +213,13 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     ...prev,
                     _count: {
                         ...prev._count,
-                        followers: isFollowing
-                            ? Math.max(0, followers - 1)
-                            : followers + 1,
+                        followers: wasFollowing
+                            ? followers + 1
+                            : Math.max(0, followers - 1),
                     },
                 };
             });
-        } catch (error) {
+            toast.error("Failed to update follow status");
             console.error("Failed to toggle follow:", error);
         } finally {
             setIsFollowBusy(false);

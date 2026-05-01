@@ -1259,8 +1259,10 @@ export default function FeedPage() {
     try {
       if (target.isFollowing) {
         await apiClient.delete(`/users/${target.id}/follow`);
+        toast.success(`Unfollowed @${target.username}`);
       } else {
         await apiClient.post(`/users/${target.id}/follow`);
+        toast.success(`following @${target.username}`);
       }
 
       setSearchResults((prev) =>
