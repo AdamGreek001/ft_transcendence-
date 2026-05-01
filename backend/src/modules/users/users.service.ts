@@ -124,7 +124,7 @@ export class UsersService {
       followerId: currentUserId,
       followingId: targetUserId,
     });
-
+    await this.notificationsService.removeFollowNotification(targetUserId, currentUserId);
     return { success: true };
   }
 

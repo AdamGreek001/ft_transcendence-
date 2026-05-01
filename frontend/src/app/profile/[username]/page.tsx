@@ -242,7 +242,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const currentPosts = activeTab === "posts" ? posts : savedPosts;
 
     return (
-        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
+        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f] custom-scrollbar">
             {isNavSidebarOpen && (
                 <div className="fixed inset-0 z-50 lg:hidden">
                     <button type="button" onClick={() => setIsNavSidebarOpen(false)} className="absolute inset-0 bg-black/60" />
@@ -254,7 +254,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
             <div className="hidden lg:block"><AppSidebar /></div>
 
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto custom-scrollbar">
                 {/* Header */}
                 <div className="sticky top-0 bg-[#0d0d0f]/95 backdrop-blur z-10 px-4 py-3 border-b border-gray-800/50">
                     <div className="flex items-center gap-3">

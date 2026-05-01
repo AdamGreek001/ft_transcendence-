@@ -106,7 +106,6 @@ export function normalizeAvatarUrl(avatarUrl?: string | null, username?: string)
 // ============================================================
 
 interface CreatePostProps {
-  profile_image: string;
   currentUser?: {
     avatarUrl: string | null;
     username: string;
@@ -156,7 +155,7 @@ function useRelativeTime(date: Date): string {
 }
 
 
-function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
+function CreatePost({ currentUser, onSubmit }: CreatePostProps) {
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -165,11 +164,12 @@ function CreatePost({ profile_image, currentUser, onSubmit }: CreatePostProps) {
   const isContentTooLong = text.length > MAX_CONTENT_LENGTH;
   const canPost = (text.trim().length > 0 || image !== null) && !isContentTooLong;
 
- 
   const avatarUrl = normalizeAvatarUrl(
     currentUser?.avatarUrl,
     currentUser?.username
   );
+  console.log("currentUser:", currentUser);
+  console.log("avatarUrl:", avatarUrl);
 
     function CharCounter({ current, max }: { current: number; max: number }) {
   const remaining = max - current;
@@ -267,7 +267,7 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
           <Avatar
-            src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
+            src={avatarUrl}
             alt="Your profile picture"
             size={40}
           />
@@ -1166,7 +1166,11 @@ export default function FeedPage() {
       fetchFollowing();
     }, [currentUser?.id]);
 
-  
+    useEffect(() => {
+      if (isHydrated && authUser) {
+        fetchCurrentUser();
+      }
+    }, [isHydrated, authUser?.id]);
   useEffect(() => {
     async function handleShared(e: Event) {
       const { postId } = (e as CustomEvent).detail;
@@ -1200,10 +1204,10 @@ export default function FeedPage() {
   }, []);
 
   useEffect(() => {
-    if (authUser && !currentUser) {
-      setCurrentUser(authUser);
+    if (authUser && !currentUser?.avatarUrl) {
+      setCurrentUser((prev: any) => prev?.id ? prev : authUser);
     }
-  }, [authUser, currentUser]);
+  }, [authUser]);
 
   useEffect(() => {
     if (!isHydrated || !authUser) return;
@@ -1422,8 +1426,7 @@ export default function FeedPage() {
             <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
               <CreatePost
-                profile_image={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
-                currentUser={currentUser || { username: "user", avatarUrl: null }}
+                currentUser={currentUser}
                 onSubmit={handleAddPost}
               />
               {newPostsAvailable && (

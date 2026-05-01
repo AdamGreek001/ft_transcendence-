@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 
+@Index(["recipientId", "actorId", "type", "referenceId"])
 @Entity("notifications")
 export class Notification {
     @PrimaryGeneratedColumn("uuid")
@@ -29,6 +30,12 @@ export class Notification {
 
     @Column({ type: "uuid", name: "actor_id" })
     actorId: string;
+
+    @Column({ type: "uuid", name: "reference_id", nullable: true })
+    referenceId: string | null;
+
+    @Column({ type: "jsonb", nullable: true })
+    metadata: Record<string, any> | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
