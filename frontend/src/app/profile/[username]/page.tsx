@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 // import your existing PostCard and normalizeAvatarUrl
 import { PostCard, normalizeAvatarUrl } from "@/app/feed/page";
@@ -62,13 +63,31 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
     // tabs
     const [activeTab, setActiveTab] = useState<Tab>("posts");
-    const [posts, setPosts] = useState<any[]>([]);
-    const [savedPosts, setSavedPosts] = useState<any[]>([]);
-    const [postsLoading, setPostsLoading] = useState(false);
     const [followModal, setFollowModal] = useState<{
         open: boolean;
         tab: "followers" | "following";
     } | null>(null);
+
+    const {
+        items: posts,
+        isLoading: postsLoading,
+        hasMore: hasMorePosts,
+        ref: postsLoaderRef,
+        setItems: setPosts,
+    } = useInfiniteScroll<any>({
+        fetchUrl: profile ? `/posts/user/${profile.username}` : "",
+        limit: 20,
+    });
+    
+    const {
+        items: savedPosts,
+        isLoading: savedLoading,
+        hasMore: hasMoreSaved,
+        ref: savedLoaderRef,
+    } = useInfiniteScroll<any>({
+        fetchUrl: "/posts/saved",
+        limit: 20,
+    });
 
     const loadProfile = async () => {
         const resolved = await params;
@@ -143,33 +162,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         load();
         return () => { cancelled = true; };
     }, [params, currentUser?.id]);
-
-    // load posts when profile is ready or tab changes
-    useEffect(() => {
-        if (!profile) return;
-
-        async function loadPosts() {
-            setPostsLoading(true);
-            try {
-                if (activeTab === "posts") {
-                    const res = await api.posts.getByUsername(profile!.username);
-                    setPosts(res.data);
-                } else if (activeTab === "saved") {
-                    const res = await api.posts.getSaved();
-                    setSavedPosts(res.data);
-                }
-            } catch (err) {
-                console.error("Load posts error:", err);
-            } finally {
-                setPostsLoading(false);
-            }
-        }
-
-        loadPosts();
-    }, [profile, activeTab]);
-
     
-
     const handleToggleFollow = async () => {
         if (!profile) return;
         setIsFollowBusy(true);
@@ -286,12 +279,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                         <div className="px-6 pb-6">
                             <div className="flex items-end justify-between -mt-10 mb-4">
                                 <div className="rounded-full border-4 border-[#1a1a1a] overflow-hidden">
-                                    <Image
+                                    <Avatar
                                         src={normalizeAvatarUrl(profile.avatarUrl, profile.username)}
                                         alt={profile.username}
-                                        width={80}
-                                        height={80}
-                                        className="rounded-full object-cover"
+                                        size={80}
                                     />
                                 </div>
                                 {!isOwnProfile && (
@@ -383,22 +374,60 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     </div>
 
                     {/* Posts list */}
-                    {postsLoading ? (
-                        <div className="text-center text-slate-500 py-8">Loading...</div>
-                    ) : currentPosts.length === 0 ? (
-                        <div className="text-center text-slate-500 py-8">
-                            {activeTab === "posts" ? "No posts yet" : "No saved posts"}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-6">
-                            {currentPosts.map((post: any) => (
-                                <PostCard
-                                    key={post.id}
-                                    {...post}
-                                    currentUser={currentUser}
-                                />
-                            ))}
-                        </div>
+                    {activeTab === "posts" && (
+                        <>
+                            {postsLoading && posts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">Loading...</div>
+                            )}
+                            {!postsLoading && posts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">No posts yet</div>
+                            )}
+                            <div className="flex flex-col gap-6">
+                                {posts.map((post: any) => (
+                                    <PostCard
+                                        key={post.feedItemId || post.id}
+                                        {...post}
+                                        currentUser={currentUser}
+                                    />
+                                ))}
+                            </div>
+                            <div ref={postsLoaderRef} className="py-4 flex justify-center">
+                                {postsLoading && posts.length > 0 && (
+                                    <div className="text-slate-500 text-sm animate-pulse">Loading more...</div>
+                                )}
+                                {!hasMorePosts && posts.length > 0 && (
+                                    <div className="text-slate-600 text-sm">No more posts</div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    
+                    {activeTab === "saved" && isOwnProfile && (
+                        <>
+                            {savedLoading && savedPosts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">Loading...</div>
+                            )}
+                            {!savedLoading && savedPosts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">No saved posts</div>
+                            )}
+                            <div className="flex flex-col gap-6">
+                                {savedPosts.map((post: any) => (
+                                    <PostCard
+                                        key={post.feedItemId || post.id}
+                                        {...post}
+                                        currentUser={currentUser}
+                                    />
+                                ))}
+                            </div>
+                            <div ref={savedLoaderRef} className="py-4 flex justify-center">
+                                {savedLoading && savedPosts.length > 0 && (
+                                    <div className="text-slate-500 text-sm animate-pulse">Loading more...</div>
+                                )}
+                                {!hasMoreSaved && savedPosts.length > 0 && (
+                                    <div className="text-slate-600 text-sm">No more saved posts</div>
+                                )}
+                            </div>
+                        </>
                     )}
                     {/* at the bottom of the return */}
                     {followModal?.open && (

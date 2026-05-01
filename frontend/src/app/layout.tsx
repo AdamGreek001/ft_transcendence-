@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ToastContainer } from "@/components/layout/ToastContainer";
+import { PostProvider, usePostContext } from "@/context/PostContext";
 
 import "./globals.css";
 
@@ -25,8 +26,10 @@ export default function RootLayout({
                 />
             </head>
             <body suppressHydrationWarning={true}>
-                {children}
-                <ToastContainer />
+                <PostProvider>
+                    {children}
+                    <ToastContainer />
+                </PostProvider>
             </body>
         </html>
     );

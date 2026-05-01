@@ -21,15 +21,20 @@ export function useInfiniteScroll<T extends { id: string }>({
     const ref = useRef<HTMLDivElement>(null);
     const hasFetchedOnce = useRef(false); 
 
+    
     const loadMore = useCallback(async () => {
-        if (isLoading || !hasMore) return;
+        if (isLoading || !hasMore || !fetchUrl) return;
         setIsLoading(true);
         try {
             const res = await apiClient.get<any>(`${fetchUrl}?page=${page}&limit=${limit}`);
             const data: T[] = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-            
-            if (data.length < limit) setHasMore(false);
-            setItems((prev) => [...prev, ...data]);
+    
+            setItems((prev) => {
+                const existingIds = new Set(prev.map((p) => (p as any).feedItemId || p.id));
+                const unique = data.filter((p) => !existingIds.has((p as any).feedItemId || p.id));
+                if (data.length < limit) setHasMore(false);
+                return [...prev, ...unique];
+            });
             setPage((p) => p + 1);
         } catch {
             setHasMore(false);
@@ -40,10 +45,11 @@ export function useInfiniteScroll<T extends { id: string }>({
 
   
     useEffect(() => {
+        if (!fetchUrl) return;
         if (hasFetchedOnce.current) return;
         hasFetchedOnce.current = true;
         loadMore();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchUrl]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(

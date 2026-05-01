@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui";
 import { toast } from "@/lib/toast";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-
+import { PostProvider, usePostContext } from "@/context/PostContext";
 
 // ============================================================
 // TYPES — ready for real API data later
@@ -267,7 +267,7 @@ function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
       <div className="flex gap-4">
         <div className="size-10 rounded-full overflow-hidden shrink-0">
           <Avatar
-            src={avatarUrl}
+            src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
             alt="Your profile picture"
             size={40}
           />
@@ -366,7 +366,7 @@ return (
                 {comment.author.username}
               </span>
             </ProfileHoverCard>
-            <p className="text-sm text-slate-400">{comment.content}</p>
+            <p className="text-sm text-slate-400 break-all">{comment.content}</p>
           </div>
           <div className="flex gap-4 text-[10px] font-bold text-slate-500 px-1">
             {!isReply && (
@@ -398,7 +398,11 @@ return (
 // COMMENT SECTION
 // ============================================================
 
-function CommentSection({ postId, currentUser }: { postId: string; currentUser: any }) {
+function CommentSection({ postId, currentUser, onCommentAdded }: {
+  postId: string;
+  currentUser: any;
+  onCommentAdded?: () => void;
+}) {
   const [commentsList, setCommentsList] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState<{ name: string; commentId: string } | null>(null);
@@ -508,6 +512,7 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
       setCommentsList((prev) => [created, ...prev]);
       toast.success("Comment posted successfully");
     }
+    onCommentAdded?.();
 
     setCommentText("");
     setReplyingTo(null);
@@ -549,7 +554,6 @@ function CommentSection({ postId, currentUser }: { postId: string; currentUser: 
             src={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
             alt="you"
             size={36}
-            onClick={() => router.push(`/profile/${currentUser?.username}`)}
           />
         </div>
         <div className="flex-1">
@@ -793,198 +797,171 @@ function ProfileHoverCard({ author, currentUser, children }: {
 // ============================================================
 
 export function PostCard({ id, content, imageUrl, createdAt, author, _count,
-  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser }: Post & {
+  isLikedByMe, isSharedByMe, isSavedByMe, sharedBy, currentUser, feedItemId, followingIds }: Post & {
   currentUser: any;
+  feedItemId?: string;
+  followingIds?: Set<string>;
 }) {
-  const [liked, setLiked] = useState(isLikedByMe ?? false);
-  const [likeCount, setLikeCount] = useState(_count?.likes ?? 0);
-  const [saved, setSaved] = useState(isSavedByMe ?? false);
+  const { getState, setState } = usePostContext();
+
+  const contextState = getState(id);
+  const liked = contextState?.liked ?? (isLikedByMe ?? false);
+  const likeCount = contextState?.likeCount ?? (_count?.likes ?? 0);
+  const shared = contextState?.shared ?? (isSharedByMe ?? false);
+  const shareCount = contextState?.shareCount ?? (_count?.shares ?? 0);
+  const saved = contextState?.saved ?? (isSavedByMe ?? false);
+  const commentCount = contextState?.commentCount ?? (_count?.comments ?? 0)
+
   const [showComments, setShowComments] = useState(false);
-  const [shared, setShared] = useState(isSharedByMe ?? false);
-  const [shareCount, setShareCount] = useState(_count?.shares ?? 0);
-  const isOwnPost = currentUser?.id === author.id;
-  const [hidden, setHidden] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
+  const isFollowing = followingIds?.has(author.id) ?? false;
   const [followLoading, setFollowLoading] = useState(false);
-
-  const router = useRouter();
-
-
-  const relativeTime = useRelativeTime(new Date(createdAt));
   const [loading, setLoading] = useState(false);
+
+  const isOwnPost = currentUser?.id === author.id;
+  const relativeTime = useRelativeTime(new Date(createdAt));
+  const router = useRouter();
+  const deleted = contextState?.deleted ?? false;
+  const hidden = contextState?.hidden ?? false;
+
+  
 
   async function handleLike() {
     if (loading) return;
     setLoading(true);
-  setLiked(!liked);
-  setLikeCount(liked ? likeCount - 1 : likeCount + 1);
-
-  try {
-    await api.posts.like(id);
-  } catch (err) {
-    // revert if API fails
-    setLiked(liked);
-    setLikeCount(likeCount);
-    toast.error("Failed to update like");
-  }
-  finally {
-    setLoading(false);
-  }
-}
-  useEffect(() => {
-  async function checkFollow() {
-    if (!currentUser || isOwnPost) return;
-
+    const wasLiked = liked;
+    setState(id, {
+      liked: !wasLiked,
+      likeCount: wasLiked ? likeCount - 1 : likeCount + 1,
+    });
     try {
-      const following = await apiClient.get<any[]>(
-        `/users/${currentUser.id}/following`
-      );
-
-      setIsFollowing(
-        following.some(
-          (f: any) =>
-            f.followingId === author.id || f.following?.id === author.id
-        )
-      );
+      await api.posts.like(id);
     } catch (err: any) {
-      if (err.response?.status === 429) {
-        toast.error("You're doing that too fast. Please wait a moment.");
+      setState(id, { liked: wasLiked, likeCount });
+      toast.error("Failed to update like");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleShare() {
+    const wasShared = shared;
+    setState(id, {
+      shared: !wasShared,
+      shareCount: wasShared ? shareCount - 1 : shareCount + 1,
+    });
+    try {
+      await api.posts.share(id);
+      toast.success(!wasShared ? "Post shared" : "Share removed");
+      if (!wasShared) {
+        window.dispatchEvent(new CustomEvent("post:shared", { detail: { postId: id } }));
       } else {
-        console.error("Follow check failed:", err);
+        window.dispatchEvent(new CustomEvent("post:unshared", { detail: { postId: id } }));
+      }
+    } catch (err: any) {
+      setState(id, { shared: wasShared, shareCount });
+      if (err.response?.status === 429) {
+        toast.error("You're sharing too fast. Please slow down.");
+      } else {
+        toast.error("Failed to update share. Try again.");
       }
     }
   }
 
-  checkFollow();
-}, [currentUser, author.id]);
-
   async function handleSave() {
-  const wasSaved = saved;
-  
-  setSaved(!wasSaved);
-  try {
-    await api.posts.save(id);
-    toast.info(!wasSaved ? "Post saved" : "Post unsaved");
-  } catch (err : any) {
-    setSaved(wasSaved);
-    if (err.response?.status === 429) {
-      toast.error("You're saving too fast. Please slow down.");
-    } else {
-      toast.error("Failed to update saved posts. Try again.");
-    }
-  }
-}
-
-async function handleShare() {
-  const wasShared = shared;
-  setShared(!wasShared);
-  setShareCount(wasShared ? shareCount - 1 : shareCount + 1);
-
-  try {
-    await api.posts.share(id);
-    toast.success(!wasShared ? "Post shared" : "Share removed");
-  } catch (err: any) {
-    setShared(wasShared);
-    setShareCount(shareCount);
-
-    if (err.response?.status === 429) {
-      toast.error("You're sharing too fast. Please slow down.");
-    } else {
-      toast.error("Failed to update share. Try again.");
-    }
-  }
-}
-
-async function handleDelete() {
+    const wasSaved = saved;
+    setState(id, { saved: !wasSaved });
     try {
-        await api.posts.delete(id);
-        setHidden(true);
-        toast.info("Post deleted");
-    } catch (err : any) {
-        if (err.response?.status === 429) {
-            toast.error("You're doing that too fast. Please slow down.");
-        } else {
-            toast.error("Failed to delete post. Please try again.");
-        }
-    }
-}
-
-async function handleHide() {
-  const wasHidden = hidden;
-
-  setHidden(true);
-
-  try {
-    await api.posts.hide(id);
-    toast.info("Post hidden");
-  } catch (err: any) {
-    console.error("Hide error:", err);
-
-    setHidden(wasHidden);
-
-    if (err.response?.status === 429) {
-      toast.error("You're doing that too fast. Please slow down.");
-    } else {
-      toast.error("Failed to hide post. Try again.");
+      await api.posts.save(id);
+      toast.info(!wasSaved ? "Post saved" : "Post unsaved");
+    } catch (err: any) {
+      setState(id, { saved: wasSaved });
+      if (err.response?.status === 429) {
+        toast.error("You're saving too fast. Please slow down.");
+      } else {
+        toast.error("Failed to update saved posts. Try again.");
+      }
     }
   }
-}
 
-async function handleUnhide() {
-  const wasHidden = hidden;
-
-  setHidden(false);
-
-  try {
-    await api.posts.unhide(id);
-    toast.info("Post restored");
-  } catch (err: any) {
-    console.error("Unhide error:", err);
-
-    setHidden(wasHidden);
-
-    if (err.response?.status === 429) {
-      toast.error("You're doing that too fast. Please slow down.");
-    } else {
-      toast.error("Failed to restore post. Try again.");
+  async function handleDelete() {
+    try {
+      await api.posts.delete(id);
+      setState(id, { deleted: true, hidden: true }); // ← both
+      toast.info("Post deleted");
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please slow down.");
+      } else {
+        toast.error("Failed to delete post. Please try again.");
+      }
     }
   }
-}
-    if (hidden && isOwnPost) return null;
-    if (hidden) return (
-        <div className="bg-[#1a1a1a] rounded-2xl border border-slate-800 p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                <img src="/icons/close.svg" alt="hidden" className="w-4 h-4 opacity-40" />
-                <span className="text-sm text-slate-500">Post hidden</span>
-            </div>
-            {!isOwnPost && (
-                <button
-                    onClick={handleUnhide}
-                    className="text-xs font-bold text-[#895af6] hover:opacity-80 transition-opacity"
-                >
-                    Show post
-                </button>
-            )}
-        </div>
-    );
+  
+  async function handleHide() {
+    try {
+      await api.posts.hide(id);
+      setState(id, { hidden: true }); // ← updates all cards with same id
+      toast.info("Post hidden");
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please slow down.");
+      } else {
+        toast.error("Failed to hide post. Try again.");
+      }
+    }
+  }
+  
+  async function handleUnhide() {
+    try {
+      await api.posts.unhide(id);
+      setState(id, { hidden: false }); // ← restores all cards with same id
+      toast.info("Post restored");
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error("You're doing that too fast. Please slow down.");
+      } else {
+        toast.error("Failed to restore post. Try again.");
+      }
+    }
+  }
+  if (deleted) return null;
+  if (hidden && sharedBy) return null;
+  if (hidden && isOwnPost) return null;
+  if (hidden) return (
+    <div className="bg-[#1a1a1a] rounded-2xl border border-slate-800 p-4 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <img src="/icons/close.svg" alt="hidden" className="w-4 h-4 opacity-40" />
+        <span className="text-sm text-slate-500">Post hidden</span>
+      </div>
+      <button onClick={handleUnhide} className="text-xs font-bold text-[#895af6] hover:opacity-80 transition-opacity">
+        Show post
+      </button>
+    </div>
+  );
+
+  function handleCommentAdded() {
+    const current = contextState?.commentCount ?? (_count?.comments ?? 0);
+    setState(id, { commentCount: current + 1 });
+  }
+
   return (
     <article className="bg-[#1a1a1a] rounded-2xl border border-slate-800 overflow-hidden shadow-lg">
 
       {/* Shared by banner */}
       {sharedBy && (
-      <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
+        <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-xs text-slate-500">
           <img src="/icons/share.svg" alt="share" className="w-3 h-3 opacity-50" />
           <span>
-              <span
-                  className="text-[#895af6] font-semibold cursor-pointer hover:underline"
-                  onClick={() => router.push(`/profile/${sharedBy.username}`)}
-              >
-                  {sharedBy.username}
-              </span>
-              {" "}shared this
+            <span
+              className="text-[#895af6] font-semibold cursor-pointer hover:underline"
+              onClick={() => router.push(`/profile/${sharedBy.username}`)}
+            >
+              {sharedBy.username}
+            </span>
+            {" "}shared this
           </span>
-      </div>
-  )}
+        </div>
+      )}
 
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
@@ -999,7 +976,6 @@ async function handleUnhide() {
                   src={normalizeAvatarUrl(author.avatarUrl, author.username)}
                   alt={author.username}
                   size={40}
-                  onClick={() => router.push(`/profile/${author.username}`)}
                 />
               </div>
               <div className="flex flex-col">
@@ -1009,31 +985,21 @@ async function handleUnhide() {
             </div>
           </ProfileHoverCard>
         </div>
-      {!isOwnPost && isFollowing && (
-        <span className="text-[11px] text-slate-600 font-medium">Following</span>
-      )}
-        {/* Own post — delete button */}
-        {isOwnPost && (
+
+        <div className="flex items-center gap-2">
+          {isOwnPost ? (
             <button
               onClick={handleDelete}
-              className="p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/10 
-                         text-slate-400 hover:text-red-400 
-                         transition-all duration-200 
-                         backdrop-blur-sm"
-           >
+              className="p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-all duration-200"
+            >
               <img src="/icons/delete.svg" alt="delete" className="w-4 h-4" />
             </button>
-        )}
-
-        {/* Other's post — hide button */}
-        {!isOwnPost && (
-            <button
-                onClick={handleHide}
-                className="text-slate-500 hover:text-white transition-colors"
-            >
-                <img src="/icons/close.svg" alt="hide" className="w-5 h-5" />
+          ) : (
+            <button onClick={handleHide} className="text-slate-500 hover:text-white transition-colors">
+              <img src="/icons/close.svg" alt="hide" className="w-5 h-5" />
             </button>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Text content */}
@@ -1089,7 +1055,7 @@ async function handleUnhide() {
               className="w-5 h-5"
               style={{ filter: showComments ? "invert(40%) sepia(80%) saturate(500%) hue-rotate(230deg)" : "none" }}
             />
-            <span className="text-xs font-bold">{_count?.comments}</span>
+            <span className="text-xs font-bold">{commentCount}</span>
           </button>
 
           {/* Share */}
@@ -1125,7 +1091,7 @@ async function handleUnhide() {
       </div>
 
       {/* Comments section */}
-      {showComments && <CommentSection postId={id} currentUser={currentUser} />}
+      {showComments && <CommentSection postId={id} currentUser={currentUser} onCommentAdded={handleCommentAdded} />}
 
     </article>
   );
@@ -1147,6 +1113,7 @@ export default function FeedPage() {
   const [isFollowBusyId, setIsFollowBusyId] = useState<string | null>(null);
   const [isFindUsersOpen, setIsFindUsersOpen] = useState(false);
   const [suggestedUsers, setSuggestedUsers] = useState<UserSuggestion[]>([]);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   
 
   useState<Record<string, string>>({});
@@ -1185,7 +1152,52 @@ export default function FeedPage() {
     }
   }
 
+    useEffect(() => {
+      if (!currentUser?.id) return;
+      async function fetchFollowing() {
+        try {
+          const data = await apiClient.get<any[]>(`/users/${currentUser.id}/following`);
+          const ids = new Set(data.map((f: any) => f.followingId || f.following?.id).filter(Boolean));
+          setFollowingIds(ids as Set<string>);
+        } catch (err) {
+          console.error("Failed to fetch following:", err);
+        }
+      }
+      fetchFollowing();
+    }, [currentUser?.id]);
+
   
+  useEffect(() => {
+    async function handleShared(e: Event) {
+      const { postId } = (e as CustomEvent).detail;
+      try {
+        // fetch the post to get full data
+        const res = await api.posts.getFeed(1, 5);
+        const sharedPost = res?.data?.find((p: any) => p.id === postId && p.sharedBy);
+        if (sharedPost) {
+          setPosts((prev) => {
+            const existingIds = new Set(prev.map((p) => p.feedItemId || p.id));
+            if (existingIds.has(sharedPost.feedItemId || sharedPost.id)) return prev;
+            return [sharedPost, ...prev];
+          });
+        }
+      } catch (err) {
+        console.error("Share event error:", err);
+      }
+    }
+  
+    function handleUnshared(e: Event) {
+      const { postId } = (e as CustomEvent).detail;
+      setPosts((prev) => prev.filter((p) => !(p.originalPostId === postId && p.sharedBy)));
+    }
+  
+    window.addEventListener("post:shared", handleShared);
+    window.addEventListener("post:unshared", handleUnshared);
+    return () => {
+      window.removeEventListener("post:shared", handleShared);
+      window.removeEventListener("post:unshared", handleUnshared);
+    };
+  }, []);
 
   useEffect(() => {
     if (authUser && !currentUser) {
@@ -1258,6 +1270,38 @@ export default function FeedPage() {
       setIsFollowBusyId(null);
     }
   };
+
+  const [newPostsAvailable, setNewPostsAvailable] = useState(false);
+
+  useEffect(() => {
+    async function checkNew() {
+        try {
+            const res = await api.posts.getFeed(1, 1);
+            const latest = res?.data?.[0];
+            if (!latest) return;
+            setPosts((prev) => {
+                const firstId = (prev[0] as any)?.feedItemId || prev[0]?.id;
+                const latestId = latest.feedItemId || latest.id;
+                if (prev.length > 0 && latestId !== firstId) {
+                    setNewPostsAvailable(true);
+                }
+                return prev;
+            });
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    const interval = setInterval(checkNew, 30000);
+    return () => clearInterval(interval);
+}, []);
+  
+  function handleLoadNew() {
+      setNewPostsAvailable(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // reset hook by reloading page or resetting state
+      window.location.reload(); // simple for now — TODO: proper reset
+  }
 
   const findUsersPanel = (
     <>
@@ -1347,120 +1391,133 @@ export default function FeedPage() {
     </>
   );
 
- async function handleAddPost(text: string, image?: File) {
-  try {
-    let imageUrl: string | undefined;
-
-    if (image) {
-      const uploaded = await api.media.uploadPost(image);
-      imageUrl = uploaded.url;
+  async function handleAddPost(text: string, image?: File) {
+    try {
+        let imageUrl: string | undefined;
+        if (image) {
+            const uploaded = await api.media.uploadPost(image);
+            imageUrl = uploaded.url;
+        }
+        const created = await api.posts.create(text, imageUrl);
+        setPosts((prev) => [created, ...prev]); // prepend only
+    } catch (err: any) {
+        console.error("Create post error:", err);
     }
-
-    const created = await api.posts.create(text, imageUrl);
-    setPosts((prev) => [created, ...prev]);
-  } catch (err: any) {
-    console.error("Create post error:", err);
-  }
 }
 
   return (
     <div className="flex h-screen bg-[#0d0d0f]">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0f0f0f]">
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="xl:hidden sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur px-4 py-3 border-b border-slate-800 flex justify-end">
-            <button
-              onClick={() => setIsFindUsersOpen(true)}
-              className="px-3 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-[#895af6] hover:bg-slate-800/50 transition"
-            >
-              Find users
-            </button>
-          </div>
-          <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
+      <PostProvider>
+        <AppSidebar />
+        <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0f0f0f]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+            <div className="xl:hidden sticky top-0 z-10 bg-[#0f0f0f]/95 backdrop-blur px-4 py-3 border-b border-slate-800 flex justify-end">
+              <button
+                onClick={() => setIsFindUsersOpen(true)}
+                className="px-3 py-1.5 rounded-full border border-slate-700 text-xs font-medium text-[#895af6] hover:bg-slate-800/50 transition"
+              >
+                Find users
+              </button>
+            </div>
+            <div className="max-w-2xl mx-auto py-8 px-4 flex flex-col gap-8">
 
-            <CreatePost
-              profile_image={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
-              currentUser={currentUser || { username: "user", avatarUrl: null }}
-              onSubmit={handleAddPost}
-            />
-
-            {loading && (
-              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
-                Loading feed...
-              </div>
-            )}
-
-            {!loading && feedError && (
-              <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
-                Failed to load feed. Refresh again in a moment.
-              </div>
-            )}
-
-            {!loading && !feedError && posts.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
-                No posts yet.
-              </div>
-            )}
-            {!loading && !feedError && posts.length > 0 && (
-            <>
-              {posts.map((post) => (
-                <PostCard
-                  key={post.feedItemId || post.id}
-                  {...post}
-                  currentUser={currentUser}
-                />
-              ))}
-          
-              <div ref={loaderRef} className="py-6 flex justify-center">
-                {loading && (
-                  <div className="text-slate-500 text-sm animate-pulse">
-                    Loading more posts...
+              <CreatePost
+                profile_image={normalizeAvatarUrl(currentUser?.avatarUrl, currentUser?.username)}
+                currentUser={currentUser || { username: "user", avatarUrl: null }}
+                onSubmit={handleAddPost}
+              />
+              {newPostsAvailable && (
+                <div className="sticky top-0 z-50 bg-[#0f0f0f] pb-2">
+                  <button
+                    onClick={handleLoadNew}
+                    className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all"
+                    style={{ backgroundColor: "#895af6" }}
+                  >
+                    New posts available — tap to refresh
+                  </button>
+                </div>
+              )}
+              {/* Initial loading — only show when no posts yet */}
+              {loading && posts.length === 0 && (
+                  <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                      Loading feed...
                   </div>
-                )}
-                {!hasMore && posts.length > 0 && (
-                  <div className="text-slate-600 text-sm">
-                    You're all caught up ✓
+              )}
+
+              {!loading && feedError && (
+                  <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-6 text-center text-sm text-red-300">
+                      Failed to load feed. Refresh again in a moment.
                   </div>
-                )}
-              </div>
-            </>
-          )}
+              )}
+
+              {!feedError && posts.length === 0 && !loading && (
+                  <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] p-6 text-center text-sm text-slate-400">
+                      No posts yet.
+                  </div>
+              )}
+
+              {posts.length > 0 && (
+                  <>
+                      {posts.map((post) => (
+                          <PostCard
+                              key={post.feedItemId || post.id}
+                              {...post}
+                              currentUser={currentUser}
+                              followingIds={followingIds}
+                          />
+                      ))}
+
+                      <div ref={loaderRef} className="py-6 flex justify-center">
+                          {/* scroll loading — shows at bottom only */}
+                          {loading && posts.length > 0 && (
+                              <div className="text-slate-500 text-sm animate-pulse">
+                                  Loading more posts...
+                              </div>
+                          )}
+                          {!hasMore && posts.length > 0 && (
+                              <div className="text-slate-600 text-sm">
+                                  You're all caught up ✓
+                              </div>
+                          )}
+                      </div>
+                  </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {isFindUsersOpen && (
-          <div className="fixed inset-0 z-50 xl:hidden">
-              <button
-                  type="button"
-                  onClick={() => setIsFindUsersOpen(false)}
-                  className="absolute inset-0 bg-black/60"
-                  aria-label="Close find users panel"
-              />
-              <aside className="absolute right-0 top-0 h-full w-[min(90vw,24rem)] overflow-y-auto border-l border-slate-800/60 bg-[#0f0f0f] p-4 shadow-2xl">
-                  <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Find users</h2>
-                      <button
-                          type="button"
-                          onClick={() => setIsFindUsersOpen(false)}
-                          className="p-2 rounded-full text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition"
-                          aria-label="Close"
-                      >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                      </button>
-                  </div>
-                  {findUsersPanel}
-              </aside>
-          </div>
-      )}
+        {isFindUsersOpen && (
+            <div className="fixed inset-0 z-50 xl:hidden">
+                <button
+                    type="button"
+                    onClick={() => setIsFindUsersOpen(false)}
+                    className="absolute inset-0 bg-black/60"
+                    aria-label="Close find users panel"
+                />
+                <aside className="absolute right-0 top-0 h-full w-[min(90vw,24rem)] overflow-y-auto border-l border-slate-800/60 bg-[#0f0f0f] p-4 shadow-2xl">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Find users</h2>
+                        <button
+                            type="button"
+                            onClick={() => setIsFindUsersOpen(false)}
+                            className="p-2 rounded-full text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition"
+                            aria-label="Close"
+                        >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    {findUsersPanel}
+                </aside>
+            </div>
+        )}
 
-      {/* Right Sidebar */}
-      <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto bg-[#0f0f0f] border-l border-slate-800/50 custom-scrollbar">
-        {findUsersPanel}
-      </aside>
-
+        {/* Right Sidebar */}
+        <aside className="w-72 xl:w-80 p-4 xl:p-6 hidden xl:block overflow-y-auto bg-[#0f0f0f] border-l border-slate-800/50 custom-scrollbar">
+          {findUsersPanel}
+        </aside>
+      </PostProvider>
     </div>
   );
 }
