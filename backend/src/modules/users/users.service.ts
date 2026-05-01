@@ -11,7 +11,21 @@ import { Follow } from "../../entities/follow.entity";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { In } from "typeorm";
+import * as fs from "fs";
+import * as path from "path";
+import { randomUUID } from "crypto";
 
+interface FileUpload {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+  destination?: string;
+  filename?: string;
+  path?: string;
+}
 
 @Injectable()
 export class UsersService {
@@ -33,7 +47,12 @@ export class UsersService {
 
     const qb = this.userRepo
       .createQueryBuilder("user")
-      .select(["user.id", "user.username", "user.displayName", "user.avatarUrl"]);
+      .select([
+        "user.id",
+        "user.username",
+        "user.displayName",
+        "user.avatarUrl",
+      ]);
 
     if (currentUserId) {
       qb.where("user.id != :currentUserId", { currentUserId });
@@ -47,7 +66,9 @@ export class UsersService {
       qb.andWhere(
         new Brackets((sub) => {
           sub
-            .where(`user.username ILIKE :u${idx}`, { [`u${idx}`]: containsPattern })
+            .where(`user.username ILIKE :u${idx}`, {
+              [`u${idx}`]: containsPattern,
+            })
             .orWhere(`user.displayName ILIKE :d${idx}`, {
               [`d${idx}`]: containsPattern,
             });
@@ -57,15 +78,14 @@ export class UsersService {
 
     const firstToken = tokens[0] || trimmed;
     const firstWildcard = firstToken.replace(/\*/g, "%").replace(/\?/g, "_");
-    qb
-      .addSelect(
-        `CASE
+    qb.addSelect(
+      `CASE
           WHEN user.username ILIKE :prefix THEN 0
           WHEN user.displayName ILIKE :prefix THEN 1
           ELSE 2
         END`,
-        "rank",
-      )
+      "rank",
+    )
       .setParameter("prefix", `${firstWildcard}%`)
       .orderBy("rank", "ASC")
       .addOrderBy("user.username", "ASC")
@@ -124,7 +144,7 @@ export class UsersService {
       followerId: currentUserId,
       followingId: targetUserId,
     });
-
+    await this.notificationsService.removeFollowNotification(targetUserId, currentUserId);
     return { success: true };
   }
 
@@ -135,7 +155,16 @@ export class UsersService {
   async findByUsername(username: string, currentUserId?: string) {
     const user = await this.userRepo.findOne({
       where: { username },
-      select: ["id", "username", "displayName", "bio", "avatarUrl", "createdAt", "isOnline", "lastSeenAt"],
+      select: [
+        "id",
+        "username",
+        "displayName",
+        "bio",
+        "avatarUrl",
+        "createdAt",
+        "isOnline",
+        "lastSeenAt",
+      ],
     });
 
     if (!user) throw new NotFoundException("User not found");
@@ -147,33 +176,33 @@ export class UsersService {
     ]);
 
     let isFollowing = false;
-    let isFollowedBy = false; 
+    let isFollowedBy = false;
 
     if (currentUserId && currentUserId !== user.id) {
       const [follow, followBack] = await Promise.all([
         this.followRepo.findOne({
           where: { followerId: currentUserId, followingId: user.id },
         }),
-        this.followRepo.findOne({                          
+        this.followRepo.findOne({
           where: { followerId: user.id, followingId: currentUserId },
         }),
       ]);
 
       isFollowing = !!follow;
-      isFollowedBy = !!followBack; 
+      isFollowedBy = !!followBack;
     }
 
     return {
       ...user,
       isFollowing,
-      isFollowedBy, 
+      isFollowedBy,
       _count: {
         posts: postCount,
         followers: followerCount,
         following: followingCount,
       },
     };
-}
+  }
 
   async updateProfile(userId: string, updateUserDto: UpdateUserDto) {
     try {
@@ -182,11 +211,13 @@ export class UsersService {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
       if (updateUserDto.username) {
-        const existingUser = await this.userRepo.findOne({ 
-          where: { username: updateUserDto.username } 
+        const existingUser = await this.userRepo.findOne({
+          where: { username: updateUserDto.username },
         });
         if (existingUser && existingUser.id !== userId) {
-          throw new ConflictException("Username is already taken by another user");
+          throw new ConflictException(
+            "Username is already taken by another user",
+          );
         }
       }
       await this.userRepo.update(userId, updateUserDto);
@@ -202,6 +233,48 @@ export class UsersService {
     return { avatarUrl };
   }
 
+  async uploadAndSaveAvatar(userId: string, file: FileUpload): Promise<string> {
+    try {
+      // Ensure user exists
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException("User not found");
+      }
+
+      // Determine file extension from MIME type
+      const mimeExtMap: Record<string, string> = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+      };
+      const ext = mimeExtMap[file.mimetype] || ".jpg";
+      const fileName = `${randomUUID()}${ext}`;
+
+      // Create upload directory if it doesn't exist
+      const uploadDir = path.join(process.cwd(), "uploads", "avatars");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Write file to disk asynchronously
+      const filePath = path.join(uploadDir, fileName);
+      await fs.promises.writeFile(filePath, file.buffer);
+
+      // Build avatar URL
+      const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL || "/uploads"}/avatars/${fileName}`;
+
+      // Update user record
+      await this.userRepo.update(userId, { avatarUrl });
+
+      return avatarUrl;
+    } catch (error: any) {
+      throw new BadRequestException(
+        `Failed to upload avatar: ${error.message}`,
+      );
+    }
+  }
+
   async removeAvatar(userId: string) {
     await this.userRepo.update(userId, { avatarUrl: null });
     return { success: true };
@@ -214,7 +287,7 @@ export class UsersService {
     });
   }
 
-    async getFollowers(userId: string, currentUserId?: string) {
+  async getFollowers(userId: string, currentUserId?: string) {
     const rows = await this.followRepo.find({
       where: { followingId: userId },
       relations: ["follower"],
@@ -279,7 +352,12 @@ export class UsersService {
     // Build query for users NOT followed and NOT the current user
     const qb = this.userRepo
       .createQueryBuilder("user")
-      .select(["user.id", "user.username", "user.displayName", "user.avatarUrl"])
+      .select([
+        "user.id",
+        "user.username",
+        "user.displayName",
+        "user.avatarUrl",
+      ])
       .where("user.id != :currentUserId", { currentUserId });
 
     if (followingIds.length > 0) {

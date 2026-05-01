@@ -12,6 +12,7 @@ import {
   Delete,
   Query,
   UnauthorizedException,
+  RequestTimeoutException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { SkipThrottle } from "@nestjs/throttler";
@@ -20,10 +21,19 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UseInterceptors, UploadedFile } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage, memoryStorage } from "multer";
-import { existsSync, mkdirSync } from "fs";
-import { extname } from "path";
 import { AuthService } from "../auth/auth.service";
+
+interface FileUpload {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+  destination?: string;
+  filename?: string;
+  path?: string;
+}
 
 // Allowed image types for avatars
 const ALLOWED_IMAGE_TYPES = [
@@ -37,11 +47,7 @@ const ALLOWED_IMAGE_TYPES = [
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 
 // File filter for avatar uploads
-const imageFileFilter = (
-  req: any,
-  file: Express.Multer.File,
-  callback: any,
-) => {
+const imageFileFilter = (req: any, file: FileUpload, callback: any) => {
   if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
     return callback(
       new BadRequestException(
@@ -97,7 +103,10 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: "Get suggested users to follow" })
   async getSuggestions(@Req() req: any, @Query("limit") limit?: number) {
-    return this.usersService.getSuggestions(this.getAuthUserId(req), limit || 5);
+    return this.usersService.getSuggestions(
+      this.getAuthUserId(req),
+      limit || 5,
+    );
   }
 
   @Post(":id/follow")
@@ -117,12 +126,12 @@ export class UsersController {
   }
 
   @Get(":username")
-async getProfile(
-  @Param("username") username: string,
-  @Query("currentUserId") currentUserId?: string,
-) {
-  return this.usersService.findByUsername(username, currentUserId);
-}
+  async getProfile(
+    @Param("username") username: string,
+    @Query("currentUserId") currentUserId?: string,
+  ) {
+    return this.usersService.findByUsername(username, currentUserId);
+  }
   @Patch("settings/update")
   @UseGuards(JwtAuthGuard)
   async update(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
@@ -134,60 +143,35 @@ async getProfile(
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: (req, file, callback) => {
-          const uploadPath = "./uploads/avatars";
-          if (!existsSync(uploadPath)) {
-            mkdirSync(uploadPath, { recursive: true });
-          }
-          callback(null, uploadPath);
-        },
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const ext =
-            file.mimetype === "image/jpeg"
-              ? ".jpg"
-              : file.mimetype === "image/png"
-                ? ".png"
-                : file.mimetype === "image/webp"
-                  ? ".webp"
-                  : file.mimetype === "image/gif"
-                    ? ".gif"
-                    : ".jpg";
-          callback(null, `${uniqueSuffix}${ext}`);
-        },
-      }),
       fileFilter: imageFileFilter,
       limits: {
         fileSize: MAX_AVATAR_SIZE,
       },
     }),
   )
-  async uploadAvatar(
-    @Req() req: any,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadAvatar(@Req() req: any, @UploadedFile() file: FileUpload) {
     if (!file) {
-      console.error("No file received in the controller!");
       throw new BadRequestException(
         "File not found in the request. Check if the field name is 'file'",
       );
     }
 
-    // Validate file size client-side as well (in case limits are bypassed)
+    // Validate file size (double-check in case limits are bypassed)
     if (file.size > MAX_AVATAR_SIZE) {
       throw new BadRequestException(
         `File size exceeds maximum limit of 5MB. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
       );
     }
 
-    const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL}/avatars/${file.filename}`;
-    await this.usersService.updateAvatar(
-      this.getAuthUserId(req),
-      avatarUrl,
-    );
-    return { avatarUrl };
+    try {
+      const avatarUrl = await this.usersService.uploadAndSaveAvatar(
+        this.getAuthUserId(req),
+        file,
+      );
+      return { avatarUrl };
+    } catch (error: any) {
+      throw new BadRequestException(error.message || "Failed to upload avatar");
+    }
   }
 
   @Delete("avatar/remove")
@@ -239,7 +223,7 @@ async getProfile(
   ) {
     return this.usersService.getFollowers(id, currentUserId);
   }
-  
+
   @Get(":id/following")
   @SkipThrottle()
   @ApiOperation({ summary: "Get users this user follows" })

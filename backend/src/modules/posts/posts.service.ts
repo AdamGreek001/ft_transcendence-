@@ -143,7 +143,13 @@ export class PostsService {
         const existing = await this.likeRepo.findOne({ where: { userId, postId } });
 
         if (existing) {
-            await this.likeRepo.remove(existing); // now safe, existing is not null
+            await this.likeRepo.remove(existing);
+
+            const post = await this.postRepo.findOne({ where: { id: postId } });
+            if (post && post.authorId !== userId) {
+                await this.notificationsService.removeLikeNotification(post.authorId, userId, postId);
+            }
+
             return { liked: false };
         }
 
@@ -160,14 +166,27 @@ export class PostsService {
 
     async toggleShare(userId: string, postId: string) {
         const existing = await this.shareRepo.findOne({ where: { userId, postId } });
-
+    
         if (existing) {
-            await this.shareRepo.remove(existing); // now safe, existing is not null
+            await this.shareRepo.remove(existing);
+    
+            const post = await this.postRepo.findOne({ where: { id: postId } });
+            if (post && post.authorId !== userId) {
+                await this.notificationsService.removeShareNotification(post.authorId, userId, postId);
+            }
+    
             return { shared: false };
         }
-
+    
         const share = this.shareRepo.create({ userId, postId });
         await this.shareRepo.save(share);
+    
+        // ← Fire share notification
+        const post = await this.postRepo.findOne({ where: { id: postId } });
+        if (post && post.authorId !== userId) {
+            await this.notificationsService.notifyShare(post.authorId, userId, postId);
+        }
+    
         return { shared: true };
     }
 

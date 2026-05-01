@@ -7,10 +7,10 @@ import { Avatar } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-
-// import your existing PostCard and normalizeAvatarUrl
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { PostCard, normalizeAvatarUrl } from "@/app/feed/page";
 import { FollowListModal } from "@/components/profile/FollowingListModal";
+import { toast } from "@/lib/toast";
 
 type Tab = "posts" | "saved";
 
@@ -60,15 +60,32 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const [isNavSidebarOpen, setIsNavSidebarOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // tabs
     const [activeTab, setActiveTab] = useState<Tab>("posts");
-    const [posts, setPosts] = useState<any[]>([]);
-    const [savedPosts, setSavedPosts] = useState<any[]>([]);
-    const [postsLoading, setPostsLoading] = useState(false);
     const [followModal, setFollowModal] = useState<{
         open: boolean;
         tab: "followers" | "following";
     } | null>(null);
+
+    const {
+        items: posts,
+        isLoading: postsLoading,
+        hasMore: hasMorePosts,
+        ref: postsLoaderRef,
+        setItems: setPosts,
+    } = useInfiniteScroll<any>({
+        fetchUrl: profile ? `/posts/user/${profile.username}` : "",
+        limit: 20,
+    });
+    
+    const {
+        items: savedPosts,
+        isLoading: savedLoading,
+        hasMore: hasMoreSaved,
+        ref: savedLoaderRef,
+    } = useInfiniteScroll<any>({
+        fetchUrl: "/posts/saved",
+        limit: 20,
+    });
 
     const loadProfile = async () => {
         const resolved = await params;
@@ -91,25 +108,37 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     };
 
     const handleFollowChangeFromModal = (userId: string, nowFollowing: boolean) => {
-      // if the profile user themselves was followed/unfollowed from the modal
-      if (userId === profile?.id) {
-        setIsFollowing(nowFollowing);
+        if (userId === profile?.id) {
+            setIsFollowing(nowFollowing);
+            setIsFriend(nowFollowing ? profileFollowsCurrent : false);
+            setProfile((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    _count: {
+                        ...prev._count,
+                        followers: nowFollowing
+                            ? (prev._count?.followers ?? 0) + 1
+                            : Math.max(0, (prev._count?.followers ?? 0) - 1),
+                    },
+                };
+            });
+        }
+        if (userId !== profile?.id && currentUser?.id === profile?.id) {
         setProfile((prev) => {
-          if (!prev) return prev;
-          const followers = prev._count?.followers ?? 0;
-          return {
-            ...prev,
-            _count: {
-              ...prev._count,
-              followers: nowFollowing
-                ? followers + 1
-                : Math.max(0, followers - 1),
-            },
-          };
+            if (!prev) return prev;
+            return {
+                ...prev,
+                _count: {
+                    ...prev._count,
+                    following: nowFollowing
+                        ? (prev._count?.following ?? 0) + 1
+                        : Math.max(0, (prev._count?.following ?? 0) - 1),
+                },
+            };
         });
-        setIsFriend(nowFollowing ? profileFollowsCurrent : false);
-      }
-    };
+    }
+};
 
     useEffect(() => {
         let cancelled = false;
@@ -122,15 +151,15 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             try {
                 const data = await apiClient.get<UserProfileResponse & { 
                     isFollowing?: boolean;
-                    isFollowedBy?: boolean; // ← add this
+                    isFollowedBy?: boolean;
                 }>(
                     `/users/${resolved.username}?currentUserId=${currentUser?.id ?? ""}`
                 );
                 if (cancelled) return;
                 setProfile(data);
                 setIsFollowing(data.isFollowing ?? false);
-                setProfileFollowsCurrent(data.isFollowedBy ?? false); // ← add this
-                setIsFriend((data.isFollowing ?? false) && (data.isFollowedBy ?? false)); // ← add this
+                setProfileFollowsCurrent(data.isFollowedBy ?? false);
+                setIsFriend((data.isFollowing ?? false) && (data.isFollowedBy ?? false));
             } catch (err: any) {
                 if (cancelled) return;
                 const status = err?.response?.status;
@@ -143,46 +172,40 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         load();
         return () => { cancelled = true; };
     }, [params, currentUser?.id]);
-
-    // load posts when profile is ready or tab changes
-    useEffect(() => {
-        if (!profile) return;
-
-        async function loadPosts() {
-            setPostsLoading(true);
-            try {
-                if (activeTab === "posts") {
-                    const res = await api.posts.getByUsername(profile!.username);
-                    setPosts(res.data);
-                } else if (activeTab === "saved") {
-                    const res = await api.posts.getSaved();
-                    setSavedPosts(res.data);
-                }
-            } catch (err) {
-                console.error("Load posts error:", err);
-            } finally {
-                setPostsLoading(false);
-            }
-        }
-
-        loadPosts();
-    }, [profile, activeTab]);
-
     
-
     const handleToggleFollow = async () => {
         if (!profile) return;
         setIsFollowBusy(true);
+    
+        const wasFollowing = isFollowing;
+    
+        setIsFollowing(!wasFollowing);
+        setIsFriend(!wasFollowing ? profileFollowsCurrent : false);
+        setProfile((prev) => {
+            if (!prev) return prev;
+            const followers = prev._count?.followers ?? 0;
+            return {
+                ...prev,
+                _count: {
+                    ...prev._count,
+                    followers: wasFollowing
+                        ? Math.max(0, followers - 1)
+                        : followers + 1,
+                },
+            };
+        });
+    
         try {
-            if (isFollowing) {
+            if (wasFollowing) {
                 await apiClient.delete(`/users/${profile.id}/follow`);
-                setIsFollowing(false);
-                setIsFriend(false);
+                toast.success(`Unfollowed @${profile.username}`);
             } else {
                 await apiClient.post(`/users/${profile.id}/follow`);
-                setIsFollowing(true);
-                setIsFriend(profileFollowsCurrent); // ← friend only if they follow back
+                toast.success(`Following @${profile.username}`);
             }
+        } catch (error) {
+            setIsFollowing(wasFollowing);
+            setIsFriend(wasFollowing ? profileFollowsCurrent : false);
             setProfile((prev) => {
                 if (!prev) return prev;
                 const followers = prev._count?.followers ?? 0;
@@ -190,13 +213,13 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     ...prev,
                     _count: {
                         ...prev._count,
-                        followers: isFollowing
-                            ? Math.max(0, followers - 1)
-                            : followers + 1,
+                        followers: wasFollowing
+                            ? followers + 1
+                            : Math.max(0, followers - 1),
                     },
                 };
             });
-        } catch (error) {
+            toast.error("Failed to update follow status");
             console.error("Failed to toggle follow:", error);
         } finally {
             setIsFollowBusy(false);
@@ -249,7 +272,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     const currentPosts = activeTab === "posts" ? posts : savedPosts;
 
     return (
-        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f]">
+        <div className="flex min-h-screen md:h-[100dvh] bg-[#0d0d0f] custom-scrollbar">
             {isNavSidebarOpen && (
                 <div className="fixed inset-0 z-50 lg:hidden">
                     <button type="button" onClick={() => setIsNavSidebarOpen(false)} className="absolute inset-0 bg-black/60" />
@@ -261,7 +284,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
             <div className="hidden lg:block"><AppSidebar /></div>
 
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto custom-scrollbar">
                 {/* Header */}
                 <div className="sticky top-0 bg-[#0d0d0f]/95 backdrop-blur z-10 px-4 py-3 border-b border-gray-800/50">
                     <div className="flex items-center gap-3">
@@ -286,12 +309,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                         <div className="px-6 pb-6">
                             <div className="flex items-end justify-between -mt-10 mb-4">
                                 <div className="rounded-full border-4 border-[#1a1a1a] overflow-hidden">
-                                    <Image
+                                    <Avatar
                                         src={normalizeAvatarUrl(profile.avatarUrl, profile.username)}
                                         alt={profile.username}
-                                        width={80}
-                                        height={80}
-                                        className="rounded-full object-cover"
+                                        size={80}
                                     />
                                 </div>
                                 {!isOwnProfile && (
@@ -383,22 +404,60 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     </div>
 
                     {/* Posts list */}
-                    {postsLoading ? (
-                        <div className="text-center text-slate-500 py-8">Loading...</div>
-                    ) : currentPosts.length === 0 ? (
-                        <div className="text-center text-slate-500 py-8">
-                            {activeTab === "posts" ? "No posts yet" : "No saved posts"}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-6">
-                            {currentPosts.map((post: any) => (
-                                <PostCard
-                                    key={post.id}
-                                    {...post}
-                                    currentUser={currentUser}
-                                />
-                            ))}
-                        </div>
+                    {activeTab === "posts" && (
+                        <>
+                            {postsLoading && posts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">Loading...</div>
+                            )}
+                            {!postsLoading && posts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">No posts yet</div>
+                            )}
+                            <div className="flex flex-col gap-6">
+                                {posts.map((post: any) => (
+                                    <PostCard
+                                        key={post.feedItemId || post.id}
+                                        {...post}
+                                        currentUser={currentUser}
+                                    />
+                                ))}
+                            </div>
+                            <div ref={postsLoaderRef} className="py-4 flex justify-center">
+                                {postsLoading && posts.length > 0 && (
+                                    <div className="text-slate-500 text-sm animate-pulse">Loading more...</div>
+                                )}
+                                {!hasMorePosts && posts.length > 0 && (
+                                    <div className="text-slate-600 text-sm">No more posts</div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                    
+                    {activeTab === "saved" && isOwnProfile && (
+                        <>
+                            {savedLoading && savedPosts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">Loading...</div>
+                            )}
+                            {!savedLoading && savedPosts.length === 0 && (
+                                <div className="text-center text-slate-500 py-8">No saved posts</div>
+                            )}
+                            <div className="flex flex-col gap-6">
+                                {savedPosts.map((post: any) => (
+                                    <PostCard
+                                        key={post.feedItemId || post.id}
+                                        {...post}
+                                        currentUser={currentUser}
+                                    />
+                                ))}
+                            </div>
+                            <div ref={savedLoaderRef} className="py-4 flex justify-center">
+                                {savedLoading && savedPosts.length > 0 && (
+                                    <div className="text-slate-500 text-sm animate-pulse">Loading more...</div>
+                                )}
+                                {!hasMoreSaved && savedPosts.length > 0 && (
+                                    <div className="text-slate-600 text-sm">No more saved posts</div>
+                                )}
+                            </div>
+                        </>
                     )}
                     {/* at the bottom of the return */}
                     {followModal?.open && (

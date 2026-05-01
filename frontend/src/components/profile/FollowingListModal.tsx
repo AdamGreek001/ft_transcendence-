@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeAvatarUrl } from "@/app/feed/page";
+import { toast } from "@/lib/toast";
 
 type Tab = "followers" | "following";
 
@@ -42,10 +43,18 @@ export function FollowListModal({
     followers: null,
     following: null,
   });
+  const [counts, setCounts] = useState({
+    followers: followerCount,
+    following: followingCount,
+  });
   const [loading, setLoading] = useState(false);
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
   const [hoverUnfollow, setHoverUnfollow] = useState<Record<string, boolean>>({});
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCounts({ followers: followerCount, following: followingCount });
+  }, [followerCount, followingCount]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeAndReset(); };
@@ -84,37 +93,52 @@ export function FollowListModal({
 
   const handleToggleFollow = async (u: FollowUser) => {
     if (u.id === currentUser?.id || followBusy[u.id]) return;
-  
     setFollowBusy((p) => ({ ...p, [u.id]: true }));
-  
+
+    const nowFollowing = !u.isFollowing;
+
     try {
-      if (u.isFollowing) {
-        await apiClient.delete(`/users/${u.id}/follow`);
-      } else {
-        await apiClient.post(`/users/${u.id}/follow`);
-      }
-  
-      setLists((prev) => {
-        const patch = (list: FollowUser[] | null) =>
-          list?.map((x) =>
-            x.id === u.id ? { ...x, isFollowing: !x.isFollowing } : x
-          ) ?? null;
-  
-        return {
-          followers: patch(prev.followers),
-          following: patch(prev.following),
-        };
-      });
-  
-      onFollowChange?.(u.id, !u.isFollowing);
-  
+        if (u.isFollowing) {
+            await apiClient.delete(`/users/${u.id}/follow`);
+            toast.success(`Unfollowed @${u.username}`);
+        } else {
+            await apiClient.post(`/users/${u.id}/follow`);
+            toast.success(`Followed @${u.username}`);
+        }
+
+        setLists((prev) => {
+            const patch = (list: FollowUser[] | null) =>
+                list?.map((x) =>
+                    x.id === u.id ? { ...x, isFollowing: nowFollowing } : x
+                ) ?? null;
+            return { followers: patch(prev.followers), following: patch(prev.following) };
+        });
+
+        if (u.id === profileId) {
+            setCounts((prev) => ({
+                ...prev,
+                followers: nowFollowing
+                    ? prev.followers + 1
+                    : Math.max(0, prev.followers - 1),
+            }));
+        } else if (currentUser?.id === profileId) {
+            setCounts((prev) => ({
+                ...prev,
+                following: nowFollowing
+                    ? prev.following + 1
+                    : Math.max(0, prev.following - 1),
+            }));
+        }
+
+        onFollowChange?.(u.id, nowFollowing);
+
     } catch (err) {
-      console.error("Toggle follow error:", err);
+        console.error("Toggle follow error:", err);
     } finally {
-      setFollowBusy((p) => ({ ...p, [u.id]: false }));
-      setHoverUnfollow((p) => ({ ...p, [u.id]: false }));
+        setFollowBusy((p) => ({ ...p, [u.id]: false }));
+        setHoverUnfollow((p) => ({ ...p, [u.id]: false }));
     }
-  };
+};
 
   const users = lists[tab];
   const closeAndReset  = () => {
@@ -180,7 +204,7 @@ export function FollowListModal({
                   fontWeight: 400,
                 }}
               >
-                {t === "followers" ? followerCount : followingCount}
+                {t === "followers" ? counts.followers : counts.following}
               </span>
             </button>
           ))}
