@@ -23,7 +23,7 @@ export function useInfiniteScroll<T extends { id: string }>({
 
     
     const loadMore = useCallback(async () => {
-        if (isLoading || !hasMore) return;
+        if (isLoading || !hasMore || !fetchUrl) return;
         setIsLoading(true);
         try {
             const res = await apiClient.get<any>(`${fetchUrl}?page=${page}&limit=${limit}`);
@@ -45,10 +45,11 @@ export function useInfiniteScroll<T extends { id: string }>({
 
   
     useEffect(() => {
+        if (!fetchUrl) return;
         if (hasFetchedOnce.current) return;
         hasFetchedOnce.current = true;
         loadMore();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchUrl]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
