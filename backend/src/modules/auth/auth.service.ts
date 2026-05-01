@@ -31,7 +31,6 @@ export class AuthService {
     if (exists) {
       throw new ConflictException("Username or email already taken");
     }
-
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = this.userRepo.create({
       username: dto.username,
