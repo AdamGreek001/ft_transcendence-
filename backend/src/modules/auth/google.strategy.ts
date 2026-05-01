@@ -24,10 +24,15 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     const { name, emails, photos } = profile;
 
+    const firstName = name?.givenName ?? '';
+    const lastName = name?.familyName ?? '';
+    const displayName = [firstName, lastName].filter(Boolean).join(' ') || null;
+
     const user = {
       email: emails?.[0]?.value,
-      firstName: name.givenName,
-      lastName: name.familyName,
+      firstName,
+      lastName,
+      displayName,
       picture: photos?.[0]?.value,
       accessToken,
     };

@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { apiClient as api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/lib/toast";
+import { normalizeAvatarUrl } from "@/app/feed/page";
 
 interface UserData {
   id: string;
@@ -254,13 +255,10 @@ export default function SettingsPage() {
               {/* Avatar */}
               <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-4 mb-4 sm:mb-6">
                 <div className="relative flex-shrink-0">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center overflow-hidden">
+                  <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0">
                     <Avatar
-                      src={
-                        avatarUrl ||
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=placeholder"
-                      }
-                      alt="User Avatar"
+                      src={normalizeAvatarUrl(avatarUrl, username)}
+                      alt={username || "User"}
                       size={80}
                     />
                   </div>

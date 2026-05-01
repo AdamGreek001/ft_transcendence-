@@ -8,6 +8,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, Repository } from "typeorm";
 import { User } from "../../entities/user.entity";
 import { Follow } from "../../entities/follow.entity";
+import { Post } from "../../entities/post.entity";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { NotificationsService } from "../notifications/notifications.service";
 import { In } from "typeorm";
@@ -170,7 +171,7 @@ export class UsersService {
     if (!user) throw new NotFoundException("User not found");
 
     const [postCount, followerCount, followingCount] = await Promise.all([
-      this.userRepo.manager.count("posts", { where: { authorId: user.id } }),
+      this.userRepo.manager.getRepository(Post).count({ where: { authorId: user.id } }),
       this.followRepo.count({ where: { followingId: user.id } }),
       this.followRepo.count({ where: { followerId: user.id } }),
     ]);

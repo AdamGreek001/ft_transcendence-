@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface AvatarProps {
     src?: string | null;
     alt?: string;
@@ -7,7 +11,9 @@ interface AvatarProps {
 }
 
 export function Avatar({ src, alt = "User avatar", size = 40, className = "", onClick }: AvatarProps) {
-    if (src) {
+    const [imgError, setImgError] = useState(false);
+
+    if (src && !imgError) {
         return (
             <img
                 src={src}
@@ -15,8 +21,9 @@ export function Avatar({ src, alt = "User avatar", size = 40, className = "", on
                 width={size}
                 height={size}
                 onClick={onClick}
+                onError={() => setImgError(true)}
                 className={`rounded-full object-cover ${className}`}
-                style={{ width: size, height: size }}
+                style={{ width: `${size}px`, height: `${size}px`, minWidth: `${size}px`, minHeight: `${size}px`, display: "block" }}
             />
         );
     }
@@ -24,8 +31,8 @@ export function Avatar({ src, alt = "User avatar", size = 40, className = "", on
     return (
         <div
             onClick={onClick}
-            className={`flex items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-white font-semibold ${className}`}
-            style={{ width: size, height: size, fontSize: size * 0.4 }}
+            className={`flex items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white font-semibold ${className}`}
+            style={{ width: `${size}px`, height: `${size}px`, minWidth: `${size}px`, minHeight: `${size}px`, fontSize: size * 0.4 }}
         >
             {alt.charAt(0).toUpperCase()}
         </div>

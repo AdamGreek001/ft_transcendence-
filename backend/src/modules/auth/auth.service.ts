@@ -142,9 +142,7 @@ export class AuthService {
       user = this.userRepo.create({
         username,
         email: googleUser.email,
-        displayName: googleUser.firstName
-          ? `${googleUser.firstName} ${googleUser.lastName}`.trim()
-          : null,
+        displayName: googleUser.displayName || googleUser.firstName || null,
         avatarUrl: googleUser.picture || null,
         oauthProvider: "google",
       });

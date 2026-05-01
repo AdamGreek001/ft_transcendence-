@@ -300,23 +300,30 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
 
                     {/* Cover / Profile header */}
-                    <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] overflow-hidden">
+                    <div className="rounded-2xl border border-slate-800 bg-[#1a1a1a] overflow-visible">
 
-                        {/* Cover banner */}
-                        <div className="h-32 w-full" style={{ background: "linear-gradient(135deg, #1a0533 0%, #2d1b69 50%, #0f0f1a 100%)" }} />
+                        {/* Banner + avatar overlap container */}
+                        <div className="relative">
+                            {/* Cover banner */}
+                            <div className="h-32 w-full rounded-t-2xl" style={{ background: "linear-gradient(135deg, #1a0533 0%, #2d1b69 50%, #0f0f1a 100%)" }} />
+
+                            {/* Avatar — absolutely placed so it half-overlaps the banner, immune to overflow clipping */}
+                            <div className="absolute left-6 -bottom-10 w-20 h-20 rounded-full border-4 border-[#1a1a1a] overflow-hidden z-10">
+                                <Avatar
+                                    src={normalizeAvatarUrl(profile.avatarUrl, profile.username)}
+                                    alt={profile.username}
+                                    size={80}
+                                />
+                            </div>
+                        </div>
 
                         {/* Avatar + info */}
-                        <div className="px-6 pb-6">
-                            <div className="flex items-end justify-between -mt-10 mb-4">
-                                <div className="rounded-full border-4 border-[#1a1a1a] overflow-hidden">
-                                    <Avatar
-                                        src={normalizeAvatarUrl(profile.avatarUrl, profile.username)}
-                                        alt={profile.username}
-                                        size={80}
-                                    />
-                                </div>
+                        <div className="px-6 pb-6 pt-12">
+                            <div className="flex items-start justify-between mb-4">
+                                {/* spacer so Follow button aligns right */}
+                                <div className="w-20 shrink-0" />
                                 {!isOwnProfile && (
-                                    <div className="flex gap-2 mb-1">
+                                    <div className="flex gap-2">
                                         <button
                                             onClick={handleToggleFollow}
                                             disabled={isFollowBusy}
