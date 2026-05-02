@@ -148,10 +148,16 @@ export class AuthService {
       });
       await this.userRepo.save(user);
     } else {
-      // Existing user: only update the avatar if they have NOT set a custom
-      // (locally-uploaded) avatar. A custom avatar path starts with "/uploads".
+      // Existing user: preserve the avatar if the user has uploaded a custom one.
+      // A custom avatar is stored as /uploads/avatars/... (relative) or may be an
+      // old absolute URL containing /uploads/ (e.g. http://host/uploads/avatars/...).
+      // We must NOT check startsWith("/uploads") only, because old stored values may
+      // start with "http://" while still pointing to a locally uploaded file.
       const hasCustomAvatar =
-        user.avatarUrl && user.avatarUrl.startsWith("/uploads");
+        user.avatarUrl &&
+        user.avatarUrl.includes("/uploads/") &&
+        !user.avatarUrl.includes("googleusercontent.com") &&
+        !user.avatarUrl.includes("dicebear.com");
       if (!hasCustomAvatar && googleUser.picture && user.avatarUrl !== googleUser.picture) {
         await this.userRepo.update(user.id, { avatarUrl: googleUser.picture });
         user.avatarUrl = googleUser.picture;

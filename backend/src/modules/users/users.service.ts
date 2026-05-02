@@ -262,8 +262,11 @@ export class UsersService {
       const filePath = path.join(uploadDir, fileName);
       await fs.promises.writeFile(filePath, file.buffer);
 
-      // Build avatar URL
-      const avatarUrl = `${process.env.NEXT_PUBLIC_MEDIA_URL || "/uploads"}/avatars/${fileName}`;
+      // Always store as a relative path — the frontend resolves it to an absolute URL.
+      // Never use NEXT_PUBLIC_MEDIA_URL here: that's a frontend env var and may be
+      // undefined or set to an absolute URL like http://localhost:8080/uploads,
+      // which would break the custom-avatar detection on Google re-login.
+      const avatarUrl = `/uploads/avatars/${fileName}`;
 
       // Update user record
       await this.userRepo.update(userId, { avatarUrl });
